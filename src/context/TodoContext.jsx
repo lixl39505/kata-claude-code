@@ -1,5 +1,5 @@
 import { createContext, useReducer, useEffect } from 'react'
-import { ADD_TASK, REMOVE_TASK, TOGGLE_TASK } from '../constants/actionTypes'
+import { ADD_TASK, REMOVE_TASK, TOGGLE_TASK, REORDER_TASK } from '../constants/actionTypes'
 import { generateId } from '../utils/generateId'
 
 export const TodoContext = createContext(null)
@@ -14,6 +14,13 @@ function todoReducer(state, action) {
       return state.map((task) =>
         task.id === action.payload ? { ...task, completed: !task.completed } : task
       )
+    case REORDER_TASK: {
+      const { sourceIndex, destinationIndex } = action.payload
+      const result = Array.from(state)
+      const [removed] = result.splice(sourceIndex, 1)
+      result.splice(destinationIndex, 0, removed)
+      return result
+    }
     default:
       return state
   }

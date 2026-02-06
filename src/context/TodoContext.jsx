@@ -1,4 +1,4 @@
-import { createContext, useReducer } from 'react'
+import { createContext, useReducer, useEffect } from 'react'
 import { ADD_TASK, REMOVE_TASK, TOGGLE_TASK } from '../constants/actionTypes'
 import { generateId } from '../utils/generateId'
 
@@ -19,8 +19,23 @@ function todoReducer(state, action) {
   }
 }
 
+const STORAGE_KEY = 'todo-tasks'
+
+function loadTasks() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY)
+    return data ? JSON.parse(data) : []
+  } catch {
+    return []
+  }
+}
+
 export function TodoProvider({ children }) {
-  const [tasks, dispatch] = useReducer(todoReducer, [])
+  const [tasks, dispatch] = useReducer(todoReducer, null, loadTasks)
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
+  }, [tasks])
 
   return (
     <TodoContext.Provider value={{ tasks, dispatch }}>

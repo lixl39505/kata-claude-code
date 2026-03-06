@@ -26,15 +26,17 @@
 
 目录结构必须包含：
 
+```bash
 /app
-/api
+    /api
 /lib
-/db
-/services
-/validators
-/errors
-/auth
-/audit
+    /db
+    /services
+    /validators
+    /errors
+    /auth
+    /audit
+```
 
 分层规则：
 

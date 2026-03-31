@@ -1,0 +1,2 @@
+-- Schema placeholder for future migrations
+-- Tables will be added in subsequent tasks as per requirements

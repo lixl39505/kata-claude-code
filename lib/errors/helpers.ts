@@ -41,3 +41,6 @@ export class InternalError extends AppError {
     super(ErrorCodes.INTERNAL, message);
   }
 }
+
+// Re-export AppError for convenience
+export { AppError };

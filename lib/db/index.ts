@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'database.sqlite');
 
@@ -23,8 +24,17 @@ export function closeDb(): void {
 
 export function initializeDatabase(): void {
   const database = getDb();
-  // Migration placeholder - will be used in future tasks
-  database.exec(`
-    -- PRAGMA statements already set in getDb
-  `);
+
+  // Ensure data directory exists
+  const dataDir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  // Read and execute schema
+  const schemaPath = path.join(__dirname, 'schema.sql');
+  if (fs.existsSync(schemaPath)) {
+    const schema = fs.readFileSync(schemaPath, 'utf-8');
+    database.exec(schema);
+  }
 }

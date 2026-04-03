@@ -5,6 +5,21 @@
 
 ## 技术选型
 
+### 版本约束
+
+本文档记录各框架的主版本号。每次升级依赖后必须更新本节。
+
+- **Next.js**: 16.x (App Router)
+- **React**: 19.x
+- **TypeScript**: 6.x
+- **Jest**: 30.x
+- **ESLint**: 9.x
+- **Tailwind CSS**: 4.x (CSS-first configuration)
+- **Zod**: 3.x
+- **SQLite** (via better-sqlite3): 11.x
+
+### 核心技术栈
+
 - Next.js（App Router）
 - TypeScript
 - Zod

@@ -18,3 +18,4 @@
 - 多 Agent 协同, 让 Codex 负责架构和任务分配, cc 负责写, oc 负责测试
 - 实现 vibe remote
 - task 中出现的约束需要更新到 specs
+- cc 在需要 "确认" 时, 应该发出声音提示我

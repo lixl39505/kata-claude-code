@@ -13,9 +13,9 @@
 - **React**: 19.x
 - **TypeScript**: 6.x
 - **Jest**: 30.x
-- **ESLint**: 9.x
+- **ESLint**: 10.x (flat config with @next/eslint-plugin-next)
 - **Tailwind CSS**: 4.x (CSS-first configuration)
-- **Zod**: 3.x
+- **Zod**: 4.x
 - **SQLite** (via better-sqlite3): 11.x
 
 ### 核心技术栈

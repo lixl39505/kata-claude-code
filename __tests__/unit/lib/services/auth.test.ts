@@ -1,6 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 import { register, login, logout, getCurrentUser, requireAuthenticatedUser } from '@/lib/services/auth';
-import { createUser, findUserByEmail, findUserById } from '@/lib/db/users';
-import { hashPassword } from '@/lib/auth/password';
 import { ConflictError, UnauthenticatedError } from '@/lib/errors/helpers';
 
 // Mock all dependencies
@@ -31,14 +30,16 @@ const mockDestroySession = sessionModule.destroySession as jest.MockedFunction<t
 const mockGetSession = sessionModule.getSession as jest.MockedFunction<typeof sessionModule.getSession>;
 
 describe('Auth Service', () => {
-  let mockDb: any;
+  let mockDb: {
+    prepare: jest.Mock;
+  };
 
   beforeEach(() => {
     // Create mock database with user methods
     mockDb = {
       prepare: jest.fn(),
     };
-    mockGetDb.mockReturnValue(mockDb);
+    mockGetDb.mockReturnValue(mockDb as any);
     jest.clearAllMocks();
   });
 
@@ -51,21 +52,10 @@ describe('Auth Service', () => {
       };
 
       // Mock createUser to return a user
-      const mockUser = {
-        id: 'user-123',
-        ...userData,
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-
-      let createUserCall: any = null;
-      mockDb.prepare.mockImplementation((sql: string) => ({
-        run: jest.fn((data: any) => {
-          createUserCall = data;
-          return { lastInsertRowid: 1 };
-        }),
+      mockDb.prepare.mockReturnValue({
+        run: jest.fn(() => ({})),
         get: jest.fn(() => null), // findUserByEmail returns null (user doesn't exist)
-      }));
+      } as never);
 
       mockHashPassword.mockResolvedValue('hashed-password');
       mockCreateSession.mockResolvedValue(undefined);
@@ -90,10 +80,10 @@ describe('Auth Service', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
 
-      mockDb.prepare.mockImplementation((sql: string) => ({
+      mockDb.prepare.mockReturnValue({
         get: jest.fn(() => existingUser), // findUserByEmail returns existing user
-        run: jest.fn(),
-      }));
+        run: jest.fn(() => ({})),
+      } as never);
 
       await expect(
         register({
@@ -116,10 +106,10 @@ describe('Auth Service', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
 
-      mockDb.prepare.mockImplementation((sql: string) => ({
+      mockDb.prepare.mockReturnValue({
         get: jest.fn(() => existingUser),
-        run: jest.fn(),
-      }));
+        run: jest.fn(() => ({})),
+      } as never);
 
       mockVerifyPassword.mockResolvedValue(true);
       mockCreateSession.mockResolvedValue(undefined);
@@ -133,10 +123,10 @@ describe('Auth Service', () => {
     });
 
     it('should throw UnauthenticatedError for non-existent email', async () => {
-      mockDb.prepare.mockImplementation((sql: string) => ({
+      mockDb.prepare.mockReturnValue({
         get: jest.fn(() => null), // User not found
-        run: jest.fn(),
-      }));
+        run: jest.fn(() => ({})),
+      } as never);
 
       await expect(
         login('nonexistent@example.com', 'password')
@@ -153,10 +143,10 @@ describe('Auth Service', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
 
-      mockDb.prepare.mockImplementation((sql: string) => ({
+      mockDb.prepare.mockReturnValue({
         get: jest.fn(() => existingUser),
-        run: jest.fn(),
-      }));
+        run: jest.fn(() => ({})),
+      } as never);
 
       mockVerifyPassword.mockResolvedValue(false);
 
@@ -186,16 +176,16 @@ describe('Auth Service', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
 
-      mockDb.prepare.mockImplementation((sql: string) => ({
+      mockDb.prepare.mockReturnValue({
         get: jest.fn(() => mockUser),
-        run: jest.fn(),
-      }));
+        run: jest.fn(() => ({})),
+      } as never);
 
       mockGetSession.mockResolvedValue({
         userId: 'user-123',
         save: jest.fn(),
         destroy: jest.fn(),
-      } as any);
+      } as never);
 
       const currentUser = await getCurrentUser();
 
@@ -208,7 +198,7 @@ describe('Auth Service', () => {
         userId: null,
         save: jest.fn(),
         destroy: jest.fn(),
-      } as any);
+      } as never);
 
       const currentUser = await getCurrentUser();
 
@@ -226,16 +216,16 @@ describe('Auth Service', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
 
-      mockDb.prepare.mockImplementation((sql: string) => ({
+      mockDb.prepare.mockReturnValue({
         get: jest.fn(() => mockUser),
-        run: jest.fn(),
-      }));
+        run: jest.fn(() => ({})),
+      } as never);
 
       mockGetSession.mockResolvedValue({
         userId: 'user-123',
         save: jest.fn(),
         destroy: jest.fn(),
-      } as any);
+      } as never);
 
       const currentUser = await requireAuthenticatedUser();
 
@@ -248,7 +238,7 @@ describe('Auth Service', () => {
         userId: null,
         save: jest.fn(),
         destroy: jest.fn(),
-      } as any);
+      } as never);
 
       await expect(requireAuthenticatedUser()).rejects.toThrow(UnauthenticatedError);
     });

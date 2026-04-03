@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { registerSchema, loginSchema } from '@/lib/validators/auth';
 import { ZodError } from 'zod';
 

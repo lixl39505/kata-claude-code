@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export type IssueStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
+
 export const createIssueSchema = z.object({
   title: z
     .string()
@@ -25,3 +27,9 @@ export type IssueIdInput = z.infer<typeof issueIdSchema>;
 
 // Re-export projectIdSchema for use in issue routes
 export { projectIdSchema, type ProjectIdInput } from './project';
+
+export const updateIssueStatusSchema = z.object({
+  status: z.enum(['OPEN', 'IN_PROGRESS', 'DONE']),
+});
+
+export type UpdateIssueStatusInput = z.infer<typeof updateIssueStatusSchema>;

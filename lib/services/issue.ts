@@ -3,11 +3,12 @@ import {
   createIssue as createIssueDb,
   findIssuesByProjectId,
   findIssueById,
+  updateIssue,
 } from '@/lib/db/issues';
 import { findProjectById } from '@/lib/db/projects';
 import { requireAuthenticatedUser } from './auth';
-import { NotFoundError } from '@/lib/errors/helpers';
-import type { CreateIssueInput } from '@/lib/validators/issue';
+import { NotFoundError, InvalidStateTransitionError, InternalError } from '@/lib/errors/helpers';
+import type { CreateIssueInput, IssueStatus, UpdateIssueStatusInput } from '@/lib/validators/issue';
 
 export interface Issue {
   id: string;
@@ -93,4 +94,61 @@ export async function getIssueByIdForProject(
   }
 
   return issue;
+}
+
+// State transition matrix
+const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
+  OPEN: ['IN_PROGRESS', 'DONE'],
+  IN_PROGRESS: ['DONE', 'OPEN'],
+  DONE: ['OPEN'],
+};
+
+function validateStateTransition(from: IssueStatus, to: IssueStatus): void {
+  const allowedTargets = VALID_TRANSITIONS[from];
+  if (!allowedTargets.includes(to)) {
+    throw new InvalidStateTransitionError(from, to);
+  }
+}
+
+export async function updateIssueStatus(
+  projectId: string,
+  issueId: string,
+  data: UpdateIssueStatusInput
+): Promise<Issue> {
+  const db = getDb();
+  const user = await requireAuthenticatedUser();
+
+  // Verify project exists and user owns it
+  const project = findProjectById(db, projectId);
+  if (!project || project.ownerId !== user.id) {
+    throw new NotFoundError('Project');
+  }
+
+  // Find current issue
+  const currentIssue = findIssueById(db, issueId);
+  if (!currentIssue) {
+    throw new NotFoundError('Issue');
+  }
+
+  // Verify issue belongs to the specified project
+  if (currentIssue.projectId !== projectId) {
+    throw new NotFoundError('Issue');
+  }
+
+  // Validate state transition
+  validateStateTransition(
+    currentIssue.status as IssueStatus,
+    data.status
+  );
+
+  // Update issue status
+  const updatedIssue = updateIssue(db, issueId, {
+    status: data.status,
+  });
+
+  if (!updatedIssue) {
+    throw new InternalError('Failed to update issue');
+  }
+
+  return updatedIssue;
 }

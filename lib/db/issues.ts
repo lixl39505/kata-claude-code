@@ -64,3 +64,37 @@ export function findIssueById(db: Database.Database, issueId: string): Issue | n
   const row = stmt.get(issueId) as Issue | undefined;
   return row || null;
 }
+
+export function updateIssue(
+  db: Database.Database,
+  issueId: string,
+  updates: Partial<Pick<IssueData, 'status'>>
+): Issue | null {
+  const current = findIssueById(db, issueId);
+  if (!current) return null;
+
+  const now = new Date().toISOString();
+  const fields: string[] = [];
+  const values: (string | number)[] = [];
+
+  if (updates.status !== undefined) {
+    fields.push('status = ?');
+    values.push(updates.status);
+  }
+
+  if (fields.length === 0) return current;
+
+  fields.push('updated_at = ?');
+  values.push(now);
+  values.push(issueId);
+
+  const stmt = db.prepare(`
+    UPDATE issues
+    SET ${fields.join(', ')}
+    WHERE id = ?
+  `);
+
+  stmt.run(...values);
+
+  return findIssueById(db, issueId);
+}

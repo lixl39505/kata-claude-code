@@ -1,4 +1,4 @@
-import { createIssueSchema, issueIdSchema } from '@/lib/validators/issue';
+import { createIssueSchema, issueIdSchema, updateIssueStatusSchema } from '@/lib/validators/issue';
 import { ZodError } from 'zod';
 
 describe('Issue Validators', () => {
@@ -109,6 +109,35 @@ describe('Issue Validators', () => {
     it('should reject empty issue ID', () => {
       expect(() =>
         issueIdSchema.parse({ issueId: '' })
+      ).toThrow(ZodError);
+    });
+  });
+
+  describe('updateIssueStatusSchema', () => {
+    it('should validate OPEN status', () => {
+      const result = updateIssueStatusSchema.parse({ status: 'OPEN' });
+      expect(result).toEqual({ status: 'OPEN' });
+    });
+
+    it('should validate IN_PROGRESS status', () => {
+      const result = updateIssueStatusSchema.parse({ status: 'IN_PROGRESS' });
+      expect(result).toEqual({ status: 'IN_PROGRESS' });
+    });
+
+    it('should validate DONE status', () => {
+      const result = updateIssueStatusSchema.parse({ status: 'DONE' });
+      expect(result).toEqual({ status: 'DONE' });
+    });
+
+    it('should reject invalid status', () => {
+      expect(() =>
+        updateIssueStatusSchema.parse({ status: 'INVALID' })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject empty status', () => {
+      expect(() =>
+        updateIssueStatusSchema.parse({ status: '' })
       ).toThrow(ZodError);
     });
   });

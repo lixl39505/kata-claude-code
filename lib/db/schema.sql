@@ -27,3 +27,20 @@ CREATE TABLE IF NOT EXISTS projects (
 -- Indexes for project lookups
 CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
 CREATE INDEX IF NOT EXISTS idx_projects_key ON projects(key);
+
+-- Issues table
+CREATE TABLE IF NOT EXISTS issues (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL,
+  created_by_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Index for project lookups
+CREATE INDEX IF NOT EXISTS idx_issues_project_id ON issues(project_id);

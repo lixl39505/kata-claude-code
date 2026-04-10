@@ -16,6 +16,7 @@ import type { CreateIssueInput, UpdateIssueStatusInput } from '@/lib/validators/
 // Mock dependencies
 jest.mock('@/lib/db', () => ({
   getDb: jest.fn(),
+  executeInTransactionAsync: jest.fn((db, callback) => callback(db)),
 }));
 
 jest.mock('@/lib/services/auth', () => ({
@@ -33,6 +34,10 @@ jest.mock('@/lib/db/projects', () => ({
   findProjectById: jest.fn(),
 }));
 
+jest.mock('@/lib/db/issue-audit-logs', () => ({
+  createIssueAuditLog: jest.fn(),
+}));
+
 const mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
 const mockRequireAuthenticatedUser = requireAuthenticatedUser as jest.MockedFunction<typeof requireAuthenticatedUser>;
 
@@ -43,12 +48,14 @@ import {
   updateIssue as updateIssueDb,
 } from '@/lib/db/issues';
 import { findProjectById } from '@/lib/db/projects';
+import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 
 const mockCreateIssueDb = createIssueDb as jest.MockedFunction<typeof createIssueDb>;
 const mockFindIssuesByProjectId = findIssuesByProjectId as jest.MockedFunction<typeof findIssuesByProjectId>;
 const mockFindIssueById = findIssueById as jest.MockedFunction<typeof findIssueById>;
 const mockUpdateIssueDb = updateIssueDb as jest.MockedFunction<typeof updateIssueDb>;
 const mockFindProjectById = findProjectById as jest.MockedFunction<typeof findProjectById>;
+const mockCreateIssueAuditLog = createIssueAuditLog as jest.MockedFunction<typeof createIssueAuditLog>;
 
 describe('Issue Service', () => {
   const mockUser = {
@@ -609,6 +616,161 @@ describe('Issue Service', () => {
 
       expect(result).toEqual(updatedIssue);
       expect(result.status).toBe('DONE');
+    });
+  });
+
+  describe('createIssueInProject with audit logging', () => {
+    it('should create audit log when issue is created', async () => {
+      const input: CreateIssueInput = {
+        title: 'Fix login bug',
+        description: 'Users cannot login',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockCreateIssueDb.mockReturnValue(mockIssue);
+      mockCreateIssueAuditLog.mockReturnValue({
+        id: 'audit-1',
+        issueId: 'issue-123',
+        projectId: 'project-123',
+        actorId: 'user-123',
+        action: 'ISSUE_CREATED',
+        fromStatus: null,
+        toStatus: 'OPEN',
+        createdAt: '2024-01-01T00:00:00.000Z',
+      });
+
+      await createIssueInProject('project-123', input);
+
+      expect(mockCreateIssueAuditLog).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          issueId: 'issue-123',
+          projectId: 'project-123',
+          actorId: 'user-123',
+          action: 'ISSUE_CREATED',
+          fromStatus: null,
+          toStatus: 'OPEN',
+        })
+      );
+    });
+
+    it('should have correct audit log data for issue creation', async () => {
+      const input: CreateIssueInput = {
+        title: 'Fix login bug',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockCreateIssueDb.mockReturnValue(mockIssue);
+      mockCreateIssueAuditLog.mockReturnValue({
+        id: 'audit-1',
+        issueId: 'issue-123',
+        projectId: 'project-123',
+        actorId: 'user-123',
+        action: 'ISSUE_CREATED',
+        fromStatus: null,
+        toStatus: 'OPEN',
+        createdAt: '2024-01-01T00:00:00.000Z',
+      });
+
+      await createIssueInProject('project-123', input);
+
+      expect(mockCreateIssueAuditLog).toHaveBeenCalledTimes(1);
+      const auditCallArgs = mockCreateIssueAuditLog.mock.calls[0];
+      expect(auditCallArgs[1]).toMatchObject({
+        action: 'ISSUE_CREATED',
+        fromStatus: null,
+        toStatus: 'OPEN',
+      });
+    });
+  });
+
+  describe('updateIssueStatus with audit logging', () => {
+    it('should create audit log when status changes', async () => {
+      const input: UpdateIssueStatusInput = {
+        status: 'IN_PROGRESS',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        status: 'OPEN',
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        status: 'IN_PROGRESS',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+      mockCreateIssueAuditLog.mockReturnValue({
+        id: 'audit-1',
+        issueId: 'issue-123',
+        projectId: 'project-123',
+        actorId: 'user-123',
+        action: 'ISSUE_STATUS_CHANGED',
+        fromStatus: 'OPEN',
+        toStatus: 'IN_PROGRESS',
+        createdAt: '2024-01-01T00:00:00.000Z',
+      });
+
+      await updateIssueStatus('project-123', 'issue-123', input);
+
+      expect(mockCreateIssueAuditLog).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          issueId: 'issue-123',
+          projectId: 'project-123',
+          actorId: 'user-123',
+          action: 'ISSUE_STATUS_CHANGED',
+          fromStatus: 'OPEN',
+          toStatus: 'IN_PROGRESS',
+        })
+      );
+    });
+
+    it('should have correct fromStatus and toStatus in audit log', async () => {
+      const input: UpdateIssueStatusInput = {
+        status: 'DONE',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        status: 'IN_PROGRESS',
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        status: 'DONE',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+      mockCreateIssueAuditLog.mockReturnValue({
+        id: 'audit-1',
+        issueId: 'issue-123',
+        projectId: 'project-123',
+        actorId: 'user-123',
+        action: 'ISSUE_STATUS_CHANGED',
+        fromStatus: 'IN_PROGRESS',
+        toStatus: 'DONE',
+        createdAt: '2024-01-01T00:00:00.000Z',
+      });
+
+      await updateIssueStatus('project-123', 'issue-123', input);
+
+      expect(mockCreateIssueAuditLog).toHaveBeenCalledTimes(1);
+      const auditCallArgs = mockCreateIssueAuditLog.mock.calls[0];
+      expect(auditCallArgs[1]).toMatchObject({
+        action: 'ISSUE_STATUS_CHANGED',
+        fromStatus: 'IN_PROGRESS',
+        toStatus: 'DONE',
+      });
     });
   });
 });

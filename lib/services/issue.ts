@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db';
+import { getDb, executeInTransactionAsync } from '@/lib/db';
 import {
   createIssue as createIssueDb,
   findIssuesByProjectId,
@@ -6,6 +6,7 @@ import {
   updateIssue,
 } from '@/lib/db/issues';
 import { findProjectById } from '@/lib/db/projects';
+import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { NotFoundError, InvalidStateTransitionError, InternalError } from '@/lib/errors/helpers';
 import type { CreateIssueInput, IssueStatus, UpdateIssueStatusInput } from '@/lib/validators/issue';
@@ -36,16 +37,29 @@ export async function createIssueInProject(
     throw new NotFoundError('Project');
   }
 
-  // Create issue with fixed status
-  const issue = createIssueDb(db, {
-    projectId,
-    title: data.title,
-    description: data.description ?? null,
-    status: 'OPEN',
-    createdById: user.id,
-  });
+  // Use transaction to ensure atomicity of issue creation and audit logging
+  return executeInTransactionAsync(db, (txnDb) => {
+    // Create issue with fixed status
+    const issue = createIssueDb(txnDb, {
+      projectId,
+      title: data.title,
+      description: data.description ?? null,
+      status: 'OPEN',
+      createdById: user.id,
+    });
 
-  return issue;
+    // Write audit log for issue creation
+    createIssueAuditLog(txnDb, {
+      issueId: issue.id,
+      projectId: projectId,
+      actorId: user.id,
+      action: 'ISSUE_CREATED',
+      fromStatus: null,
+      toStatus: 'OPEN',
+    });
+
+    return issue;
+  });
 }
 
 export async function listIssuesForProject(projectId: string): Promise<Issue[]> {
@@ -141,14 +155,27 @@ export async function updateIssueStatus(
     data.status
   );
 
-  // Update issue status
-  const updatedIssue = updateIssue(db, issueId, {
-    status: data.status,
+  // Use transaction to ensure atomicity of status update and audit logging
+  return executeInTransactionAsync(db, (txnDb) => {
+    // Update issue status
+    const updatedIssue = updateIssue(txnDb, issueId, {
+      status: data.status,
+    });
+
+    if (!updatedIssue) {
+      throw new InternalError('Failed to update issue');
+    }
+
+    // Write audit log for status change
+    createIssueAuditLog(txnDb, {
+      issueId: issueId,
+      projectId: projectId,
+      actorId: user.id,
+      action: 'ISSUE_STATUS_CHANGED',
+      fromStatus: currentIssue.status,
+      toStatus: data.status,
+    });
+
+    return updatedIssue;
   });
-
-  if (!updatedIssue) {
-    throw new InternalError('Failed to update issue');
-  }
-
-  return updatedIssue;
 }

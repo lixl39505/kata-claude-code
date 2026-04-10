@@ -44,3 +44,24 @@ CREATE TABLE IF NOT EXISTS issues (
 
 -- Index for project lookups
 CREATE INDEX IF NOT EXISTS idx_issues_project_id ON issues(project_id);
+
+-- Issue audit logs table
+CREATE TABLE IF NOT EXISTS issue_audit_logs (
+  id TEXT PRIMARY KEY,
+  issue_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  from_status TEXT,
+  to_status TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE CASCADE,
+  CHECK (action IN ('ISSUE_CREATED', 'ISSUE_STATUS_CHANGED'))
+);
+
+-- Indexes for efficient audit log queries
+CREATE INDEX IF NOT EXISTS idx_issue_audit_logs_issue_id ON issue_audit_logs(issue_id);
+CREATE INDEX IF NOT EXISTS idx_issue_audit_logs_project_id ON issue_audit_logs(project_id);
+CREATE INDEX IF NOT EXISTS idx_issue_audit_logs_created_at ON issue_audit_logs(created_at);

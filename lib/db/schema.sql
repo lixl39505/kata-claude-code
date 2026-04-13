@@ -65,3 +65,22 @@ CREATE TABLE IF NOT EXISTS issue_audit_logs (
 CREATE INDEX IF NOT EXISTS idx_issue_audit_logs_issue_id ON issue_audit_logs(issue_id);
 CREATE INDEX IF NOT EXISTS idx_issue_audit_logs_project_id ON issue_audit_logs(project_id);
 CREATE INDEX IF NOT EXISTS idx_issue_audit_logs_created_at ON issue_audit_logs(created_at);
+
+-- Issue comments table
+CREATE TABLE IF NOT EXISTS issue_comments (
+  id TEXT PRIMARY KEY,
+  issue_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+  CHECK (length(content) >= 1 AND length(content) <= 5000)
+);
+
+-- Indexes for efficient comment queries
+CREATE INDEX IF NOT EXISTS idx_issue_comments_issue_id ON issue_comments(issue_id);
+CREATE INDEX IF NOT EXISTS idx_issue_comments_project_id ON issue_comments(project_id);
+CREATE INDEX IF NOT EXISTS idx_issue_comments_created_at ON issue_comments(created_at);

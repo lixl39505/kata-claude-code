@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import type { User, UserData } from '@/lib/db/users';
 import type { Project, ProjectData } from '@/lib/db/projects';
+import type { IssueComment, IssueCommentData } from '@/lib/db/issue-comments';
 
 // Create an in-memory test database
 export function createTestDb(): Database.Database {
@@ -51,6 +52,23 @@ export function createTestDb(): Database.Database {
     );
 
     CREATE INDEX IF NOT EXISTS idx_issues_project_id ON issues(project_id);
+
+    CREATE TABLE IF NOT EXISTS issue_comments (
+      id TEXT PRIMARY KEY,
+      issue_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      author_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+      CHECK (length(content) >= 1 AND length(content) <= 5000)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_issue_comments_issue_id ON issue_comments(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_issue_comments_project_id ON issue_comments(project_id);
+    CREATE INDEX IF NOT EXISTS idx_issue_comments_created_at ON issue_comments(created_at);
   `);
 
   return db;
@@ -151,5 +169,32 @@ export function createTestIssueData(overrides?: Partial<IssueData>): IssueData {
     description: overrides?.description || 'A test issue',
     status: overrides?.status || 'OPEN',
     createdById: overrides?.createdById || 'user-123',
+  };
+}
+
+// Create a test issue comment
+export function createTestIssueComment(overrides?: Partial<IssueComment>): IssueComment {
+  const now = new Date().toISOString();
+  const id = overrides?.id || randomUUID();
+
+  return {
+    id,
+    issueId: overrides?.issueId || 'issue-123',
+    projectId: overrides?.projectId || 'project-123',
+    authorId: overrides?.authorId || 'user-123',
+    content: overrides?.content || 'This is a test comment',
+    createdAt: overrides?.createdAt || now,
+  };
+}
+
+// Create test issue comment data
+export function createTestIssueCommentData(
+  overrides?: Partial<IssueCommentData>
+): IssueCommentData {
+  return {
+    issueId: overrides?.issueId || 'issue-123',
+    projectId: overrides?.projectId || 'project-123',
+    authorId: overrides?.authorId || 'user-123',
+    content: overrides?.content || 'This is a test comment',
   };
 }

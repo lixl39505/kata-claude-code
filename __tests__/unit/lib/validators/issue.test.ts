@@ -1,4 +1,4 @@
-import { createIssueSchema, issueIdSchema, updateIssueStatusSchema } from '@/lib/validators/issue';
+import { createIssueSchema, issueIdSchema, updateIssueStatusSchema, updateIssueAssigneeSchema } from '@/lib/validators/issue';
 import { ZodError } from 'zod';
 
 describe('Issue Validators', () => {
@@ -138,6 +138,40 @@ describe('Issue Validators', () => {
     it('should reject empty status', () => {
       expect(() =>
         updateIssueStatusSchema.parse({ status: '' })
+      ).toThrow(ZodError);
+    });
+  });
+
+  describe('updateIssueAssigneeSchema', () => {
+    it('should validate setting assignee to valid UUID', () => {
+      const result = updateIssueAssigneeSchema.parse({
+        assigneeId: '550e8400-e29b-41d4-a716-446655440000'
+      });
+      expect(result).toEqual({
+        assigneeId: '550e8400-e29b-41d4-a716-446655440000'
+      });
+    });
+
+    it('should validate clearing assignee (null)', () => {
+      const result = updateIssueAssigneeSchema.parse({ assigneeId: null });
+      expect(result).toEqual({ assigneeId: null });
+    });
+
+    it('should reject non-UUID assignee ID', () => {
+      expect(() =>
+        updateIssueAssigneeSchema.parse({ assigneeId: 'not-a-uuid' })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject empty string assignee ID', () => {
+      expect(() =>
+        updateIssueAssigneeSchema.parse({ assigneeId: '' })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject undefined assignee ID', () => {
+      expect(() =>
+        updateIssueAssigneeSchema.parse({ assigneeId: undefined })
       ).toThrow(ZodError);
     });
   });

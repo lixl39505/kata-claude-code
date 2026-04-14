@@ -38,8 +38,10 @@ describe('Issue Audit Logs Database Operations', () => {
         description TEXT,
         status TEXT NOT NULL,
         created_by_id TEXT NOT NULL,
+        assignee_id TEXT,
         FOREIGN KEY (project_id) REFERENCES projects(id),
-        FOREIGN KEY (created_by_id) REFERENCES users(id)
+        FOREIGN KEY (created_by_id) REFERENCES users(id),
+        FOREIGN KEY (assignee_id) REFERENCES users(id)
       );
 
       CREATE TABLE issue_audit_logs (
@@ -50,11 +52,13 @@ describe('Issue Audit Logs Database Operations', () => {
         action TEXT NOT NULL,
         from_status TEXT,
         to_status TEXT,
+        from_assignee_id TEXT,
+        to_assignee_id TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (issue_id) REFERENCES issues(id),
         FOREIGN KEY (project_id) REFERENCES projects(id),
         FOREIGN KEY (actor_id) REFERENCES users(id),
-        CHECK (action IN ('ISSUE_CREATED', 'ISSUE_STATUS_CHANGED'))
+        CHECK (action IN ('ISSUE_CREATED', 'ISSUE_STATUS_CHANGED', 'ISSUE_ASSIGNEE_CHANGED'))
       );
     `);
 

@@ -72,6 +72,7 @@ describe('Issue Comment Service', () => {
     description: 'A test issue',
     status: 'OPEN',
     createdById: 'user-123',
+    assigneeId: null,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
   };

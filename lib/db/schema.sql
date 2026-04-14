@@ -36,14 +36,17 @@ CREATE TABLE IF NOT EXISTS issues (
   description TEXT,
   status TEXT NOT NULL,
   created_by_id TEXT NOT NULL,
+  assignee_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Index for project lookups
+-- Indexes for project lookups
 CREATE INDEX IF NOT EXISTS idx_issues_project_id ON issues(project_id);
+CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
 
 -- Issue audit logs table
 CREATE TABLE IF NOT EXISTS issue_audit_logs (
@@ -54,11 +57,13 @@ CREATE TABLE IF NOT EXISTS issue_audit_logs (
   action TEXT NOT NULL,
   from_status TEXT,
   to_status TEXT,
+  from_assignee_id TEXT,
+  to_assignee_id TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
   FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE CASCADE,
-  CHECK (action IN ('ISSUE_CREATED', 'ISSUE_STATUS_CHANGED'))
+  CHECK (action IN ('ISSUE_CREATED', 'ISSUE_STATUS_CHANGED', 'ISSUE_ASSIGNEE_CHANGED'))
 );
 
 -- Indexes for efficient audit log queries

@@ -6,10 +6,11 @@ import {
   updateIssue,
 } from '@/lib/db/issues';
 import { findProjectById } from '@/lib/db/projects';
+import { findUserById } from '@/lib/db/users';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { NotFoundError, InvalidStateTransitionError, InternalError } from '@/lib/errors/helpers';
-import type { CreateIssueInput, IssueStatus, UpdateIssueStatusInput } from '@/lib/validators/issue';
+import type { CreateIssueInput, IssueStatus, UpdateIssueStatusInput, UpdateIssueAssigneeInput } from '@/lib/validators/issue';
 
 export interface Issue {
   id: string;
@@ -18,6 +19,7 @@ export interface Issue {
   description: string | null;
   status: string;
   createdById: string;
+  assigneeId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -174,6 +176,65 @@ export async function updateIssueStatus(
       action: 'ISSUE_STATUS_CHANGED',
       fromStatus: currentIssue.status,
       toStatus: data.status,
+    });
+
+    return updatedIssue;
+  });
+}
+
+export async function updateIssueAssignee(
+  projectId: string,
+  issueId: string,
+  data: UpdateIssueAssigneeInput
+): Promise<Issue> {
+  const db = getDb();
+  const user = await requireAuthenticatedUser();
+
+  // Verify project exists and user owns it
+  const project = findProjectById(db, projectId);
+  if (!project || project.ownerId !== user.id) {
+    throw new NotFoundError('Project');
+  }
+
+  // Find current issue
+  const currentIssue = findIssueById(db, issueId);
+  if (!currentIssue) {
+    throw new NotFoundError('Issue');
+  }
+
+  // Verify issue belongs to the specified project
+  if (currentIssue.projectId !== projectId) {
+    throw new NotFoundError('Issue');
+  }
+
+  // If setting an assignee, verify the user exists
+  if (data.assigneeId !== null) {
+    const assignee = findUserById(db, data.assigneeId);
+    if (!assignee) {
+      throw new NotFoundError('Assignee');
+    }
+  }
+
+  // Use transaction to ensure atomicity
+  return executeInTransactionAsync(db, (txnDb) => {
+    const updatedIssue = updateIssue(txnDb, issueId, {
+      assigneeId: data.assigneeId,
+    });
+
+    if (!updatedIssue) {
+      throw new InternalError('Failed to update issue assignee');
+    }
+
+    // Write audit log for assignee change
+    createIssueAuditLog(txnDb, {
+      issueId: issueId,
+      projectId: projectId,
+      actorId: user.id,
+      action: 'ISSUE_ASSIGNEE_CHANGED',
+      fromStatus: null,
+      toStatus: null,
+      fromAssigneeId: currentIssue.assigneeId,
+      toAssigneeId: data.assigneeId,
     });
 
     return updatedIssue;

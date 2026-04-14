@@ -33,3 +33,9 @@ export const updateIssueStatusSchema = z.object({
 });
 
 export type UpdateIssueStatusInput = z.infer<typeof updateIssueStatusSchema>;
+
+export const updateIssueAssigneeSchema = z.object({
+  assigneeId: z.string().uuid('Invalid assignee ID').nullable(),
+});
+
+export type UpdateIssueAssigneeInput = z.infer<typeof updateIssueAssigneeSchema>;

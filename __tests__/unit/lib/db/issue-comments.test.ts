@@ -36,8 +36,10 @@ describe('Issue Comment Database Operations', () => {
         description TEXT,
         status TEXT NOT NULL,
         created_by_id TEXT NOT NULL,
+        assignee_id TEXT,
         FOREIGN KEY (project_id) REFERENCES projects(id),
-        FOREIGN KEY (created_by_id) REFERENCES users(id)
+        FOREIGN KEY (created_by_id) REFERENCES users(id),
+        FOREIGN KEY (assignee_id) REFERENCES users(id)
       );
 
       CREATE TABLE issue_comments (
@@ -70,13 +72,14 @@ describe('Issue Comment Database Operations', () => {
       'A test project'
     );
 
-    db.prepare('INSERT INTO issues (id, project_id, title, description, status, created_by_id) VALUES (?, ?, ?, ?, ?, ?)').run(
+    db.prepare('INSERT INTO issues (id, project_id, title, description, status, created_by_id, assignee_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       'issue-1',
       'project-1',
       'Test Issue',
       'A test issue',
       'OPEN',
-      'user-1'
+      'user-1',
+      null
     );
   });
 

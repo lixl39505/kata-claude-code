@@ -3,6 +3,7 @@ import {
   listIssuesForProject,
   getIssueByIdForProject,
   updateIssueStatus,
+  updateIssueAssignee,
 } from '@/lib/services/issue';
 import { getDb } from '@/lib/db';
 import { requireAuthenticatedUser } from '@/lib/services/auth';
@@ -11,7 +12,7 @@ import {
   NotFoundError,
   InvalidStateTransitionError,
 } from '@/lib/errors/helpers';
-import type { CreateIssueInput, UpdateIssueStatusInput } from '@/lib/validators/issue';
+import type { CreateIssueInput, UpdateIssueStatusInput, UpdateIssueAssigneeInput } from '@/lib/validators/issue';
 
 // Mock dependencies
 jest.mock('@/lib/db', () => ({
@@ -34,6 +35,10 @@ jest.mock('@/lib/db/projects', () => ({
   findProjectById: jest.fn(),
 }));
 
+jest.mock('@/lib/db/users', () => ({
+  findUserById: jest.fn(),
+}));
+
 jest.mock('@/lib/db/issue-audit-logs', () => ({
   createIssueAuditLog: jest.fn(),
 }));
@@ -48,6 +53,7 @@ import {
   updateIssue as updateIssueDb,
 } from '@/lib/db/issues';
 import { findProjectById } from '@/lib/db/projects';
+import { findUserById } from '@/lib/db/users';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 
 const mockCreateIssueDb = createIssueDb as jest.MockedFunction<typeof createIssueDb>;
@@ -55,6 +61,7 @@ const mockFindIssuesByProjectId = findIssuesByProjectId as jest.MockedFunction<t
 const mockFindIssueById = findIssueById as jest.MockedFunction<typeof findIssueById>;
 const mockUpdateIssueDb = updateIssueDb as jest.MockedFunction<typeof updateIssueDb>;
 const mockFindProjectById = findProjectById as jest.MockedFunction<typeof findProjectById>;
+const mockFindUserById = findUserById as jest.MockedFunction<typeof findUserById>;
 const mockCreateIssueAuditLog = createIssueAuditLog as jest.MockedFunction<typeof createIssueAuditLog>;
 
 describe('Issue Service', () => {
@@ -83,6 +90,16 @@ describe('Issue Service', () => {
     description: 'Users cannot login',
     status: 'OPEN',
     createdById: 'user-123',
+    assigneeId: null,
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+  };
+
+  const mockAssignee = {
+    id: 'user-456',
+    email: 'assignee@example.com',
+    passwordHash: 'hashed-password',
+    name: 'Assignee User',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
   };
@@ -637,6 +654,8 @@ describe('Issue Service', () => {
         action: 'ISSUE_CREATED',
         fromStatus: null,
         toStatus: 'OPEN',
+        fromAssigneeId: null,
+        toAssigneeId: null,
         createdAt: '2024-01-01T00:00:00.000Z',
       });
 
@@ -671,6 +690,8 @@ describe('Issue Service', () => {
         action: 'ISSUE_CREATED',
         fromStatus: null,
         toStatus: 'OPEN',
+        fromAssigneeId: null,
+        toAssigneeId: null,
         createdAt: '2024-01-01T00:00:00.000Z',
       });
 
@@ -714,6 +735,8 @@ describe('Issue Service', () => {
         action: 'ISSUE_STATUS_CHANGED',
         fromStatus: 'OPEN',
         toStatus: 'IN_PROGRESS',
+        fromAssigneeId: null,
+        toAssigneeId: null,
         createdAt: '2024-01-01T00:00:00.000Z',
       });
 
@@ -759,6 +782,8 @@ describe('Issue Service', () => {
         action: 'ISSUE_STATUS_CHANGED',
         fromStatus: 'IN_PROGRESS',
         toStatus: 'DONE',
+        fromAssigneeId: null,
+        toAssigneeId: null,
         createdAt: '2024-01-01T00:00:00.000Z',
       });
 
@@ -771,6 +796,331 @@ describe('Issue Service', () => {
         fromStatus: 'IN_PROGRESS',
         toStatus: 'DONE',
       });
+    });
+  });
+
+  describe('updateIssueAssignee', () => {
+    it('should set assignee when user exists', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        assigneeId: null,
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        assigneeId: 'user-456',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockFindUserById.mockReturnValue(mockAssignee);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+
+      const result = await updateIssueAssignee('project-123', 'issue-123', input);
+
+      expect(result.assigneeId).toBe('user-456');
+      expect(mockFindUserById).toHaveBeenCalledWith(mockDb, 'user-456');
+      expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
+        assigneeId: 'user-456',
+      });
+    });
+
+    it('should modify assignee when assignee already exists', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        assigneeId: 'user-789',
+      };
+
+      const newAssignee = {
+        ...mockAssignee,
+        id: 'user-456',
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        assigneeId: 'user-456',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockFindUserById.mockReturnValue(newAssignee);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+
+      const result = await updateIssueAssignee('project-123', 'issue-123', input);
+
+      expect(result.assigneeId).toBe('user-456');
+      expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
+        assigneeId: 'user-456',
+      });
+    });
+
+    it('should clear assignee when set to null', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: null,
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        assigneeId: 'user-456',
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        assigneeId: null,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+
+      const result = await updateIssueAssignee('project-123', 'issue-123', input);
+
+      expect(result.assigneeId).toBeNull();
+      expect(mockFindUserById).not.toHaveBeenCalled();
+      expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
+        assigneeId: null,
+      });
+    });
+
+    it('should throw NotFoundError when assignee user does not exist', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'non-existent-user',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        assigneeId: null,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockFindUserById.mockReturnValue(null);
+
+      await expect(
+        updateIssueAssignee('project-123', 'issue-123', input)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        updateIssueAssignee('project-123', 'issue-123', input)
+      ).rejects.toThrow('Assignee not found');
+    });
+
+    it('should throw NotFoundError when project does not exist', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(null);
+
+      await expect(
+        updateIssueAssignee('non-existent-project', 'issue-123', input)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        updateIssueAssignee('non-existent-project', 'issue-123', input)
+      ).rejects.toThrow('Project not found');
+    });
+
+    it('should throw NotFoundError when project belongs to different user (cross-project)', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      const otherUsersProject = {
+        ...mockProject,
+        ownerId: 'user-456',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(otherUsersProject);
+
+      await expect(
+        updateIssueAssignee('project-123', 'issue-123', input)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw NotFoundError when issue does not exist', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(null);
+
+      await expect(
+        updateIssueAssignee('project-123', 'non-existent-issue', input)
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        updateIssueAssignee('project-123', 'non-existent-issue', input)
+      ).rejects.toThrow('Issue not found');
+    });
+
+    it('should throw NotFoundError when issue belongs to different project', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      const otherProjectsIssue = {
+        ...mockIssue,
+        projectId: 'project-456',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(otherProjectsIssue);
+
+      await expect(
+        updateIssueAssignee('project-123', 'issue-123', input)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw UnauthenticatedError when user is not authenticated', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      mockRequireAuthenticatedUser.mockRejectedValue(
+        new UnauthenticatedError()
+      );
+
+      await expect(
+        updateIssueAssignee('project-123', 'issue-123', input)
+      ).rejects.toThrow(UnauthenticatedError);
+    });
+
+    it('should create audit log when assignee changes', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        assigneeId: 'user-789',
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        assigneeId: 'user-456',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockFindUserById.mockReturnValue(mockAssignee);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+      mockCreateIssueAuditLog.mockReturnValue({
+        id: 'audit-1',
+        issueId: 'issue-123',
+        projectId: 'project-123',
+        actorId: 'user-123',
+        action: 'ISSUE_ASSIGNEE_CHANGED',
+        fromStatus: null,
+        toStatus: null,
+        fromAssigneeId: 'user-789',
+        toAssigneeId: 'user-456',
+        createdAt: '2024-01-01T00:00:00.000Z',
+      });
+
+      await updateIssueAssignee('project-123', 'issue-123', input);
+
+      expect(mockCreateIssueAuditLog).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          issueId: 'issue-123',
+          projectId: 'project-123',
+          actorId: 'user-123',
+          action: 'ISSUE_ASSIGNEE_CHANGED',
+          fromStatus: null,
+          toStatus: null,
+          fromAssigneeId: 'user-789',
+          toAssigneeId: 'user-456',
+        })
+      );
+    });
+
+    it('should create audit log when clearing assignee', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: null,
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        assigneeId: 'user-456',
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        assigneeId: null,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+      mockCreateIssueAuditLog.mockReturnValue({
+        id: 'audit-1',
+        issueId: 'issue-123',
+        projectId: 'project-123',
+        actorId: 'user-123',
+        action: 'ISSUE_ASSIGNEE_CHANGED',
+        fromStatus: null,
+        toStatus: null,
+        fromAssigneeId: 'user-456',
+        toAssigneeId: null,
+        createdAt: '2024-01-01T00:00:00.000Z',
+      });
+
+      await updateIssueAssignee('project-123', 'issue-123', input);
+
+      expect(mockCreateIssueAuditLog).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          action: 'ISSUE_ASSIGNEE_CHANGED',
+          fromAssigneeId: 'user-456',
+          toAssigneeId: null,
+        })
+      );
+    });
+
+    it('should return updated issue with new assignee', async () => {
+      const input: UpdateIssueAssigneeInput = {
+        assigneeId: 'user-456',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        assigneeId: null,
+      };
+
+      const updatedIssue = {
+        ...currentIssue,
+        assigneeId: 'user-456',
+        updatedAt: '2024-01-02T00:00:00.000Z',
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+      mockFindUserById.mockReturnValue(mockAssignee);
+      mockUpdateIssueDb.mockReturnValue(updatedIssue);
+
+      const result = await updateIssueAssignee('project-123', 'issue-123', input);
+
+      expect(result).toEqual(updatedIssue);
+      expect(result.assigneeId).toBe('user-456');
+      expect(result.updatedAt).toBe('2024-01-02T00:00:00.000Z');
     });
   });
 });

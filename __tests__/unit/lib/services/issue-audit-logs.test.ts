@@ -44,6 +44,8 @@ describe('Issue Audit Logs Service', () => {
       action: 'ISSUE_CREATED',
       fromStatus: null,
       toStatus: 'OPEN',
+      fromAssigneeId: null,
+      toAssigneeId: null,
       createdAt: '2024-01-01T00:00:00.000Z',
     },
   ];

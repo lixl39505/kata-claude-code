@@ -39,3 +39,13 @@ export const updateIssueAssigneeSchema = z.object({
 });
 
 export type UpdateIssueAssigneeInput = z.infer<typeof updateIssueAssigneeSchema>;
+
+export const issueFiltersSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID').optional(),
+  status: z.enum(['OPEN', 'IN_PROGRESS', 'DONE']).optional(),
+  assigneeId: z.string().uuid('Invalid assignee ID').optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export type IssueFiltersInput = z.infer<typeof issueFiltersSchema>;

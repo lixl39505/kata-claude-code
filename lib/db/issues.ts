@@ -106,3 +106,76 @@ export function updateIssue(
 
   return findIssueById(db, issueId);
 }
+
+export interface IssueFilters {
+  projectId?: string;
+  status?: string;
+  assigneeId?: string;
+}
+
+export function countIssuesWithFilters(
+  db: Database.Database,
+  filters: IssueFilters
+): number {
+  const conditions: string[] = [];
+  const values: string[] = [];
+
+  if (filters.projectId) {
+    conditions.push('project_id = ?');
+    values.push(filters.projectId);
+  }
+
+  if (filters.status) {
+    conditions.push('status = ?');
+    values.push(filters.status);
+  }
+
+  if (filters.assigneeId) {
+    conditions.push('assignee_id = ?');
+    values.push(filters.assigneeId);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const stmt = db.prepare(`SELECT COUNT(*) as count FROM issues ${whereClause}`);
+  const result = stmt.get(...values) as { count: number };
+  return result.count;
+}
+
+export function findIssuesWithFilters(
+  db: Database.Database,
+  filters: IssueFilters,
+  pagination: { offset: number; limit: number }
+): Issue[] {
+  const conditions: string[] = [];
+  const values: string[] = [];
+
+  if (filters.projectId) {
+    conditions.push('project_id = ?');
+    values.push(filters.projectId);
+  }
+
+  if (filters.status) {
+    conditions.push('status = ?');
+    values.push(filters.status);
+  }
+
+  if (filters.assigneeId) {
+    conditions.push('assignee_id = ?');
+    values.push(filters.assigneeId);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const stmt = db.prepare(`
+    SELECT id, project_id as projectId, title, description, status,
+           created_by_id as createdById, assignee_id as assigneeId,
+           created_at as createdAt, updated_at as updatedAt
+    FROM issues
+    ${whereClause}
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `);
+
+  return stmt.all(...values, pagination.limit, pagination.offset) as Issue[];
+}

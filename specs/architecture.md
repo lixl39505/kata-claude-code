@@ -1,13 +1,17 @@
 # Architecture
 
-本文件定义实现约束。  
-业务规则见 requirements.md。
+本文件定义实现约束。
+
+## 系统形态
+
+- 单体应用
+- 单组织
+- 单数据库（SQLite）
+- 不拆分微服务
+- 不引入消息队列
+- 不引入搜索引擎
 
 ## 技术选型
-
-### 版本约束
-
-本文档记录各框架的主版本号。每次升级依赖后必须更新本节。
 
 - **Next.js**: 16.x (App Router)
 - **React**: 19.x
@@ -18,24 +22,13 @@
 - **Zod**: 4.x
 - **SQLite** (via better-sqlite3): 11.x
 
-### 核心技术栈
+要求:
 
-- Next.js（App Router）
-- TypeScript
-- Zod
-- SQLite
-- Node.js
-
-禁止引入未声明框架、数据库或验证库。
-
-## 系统形态
-
-- 单体应用
-- 单组织
-- 单数据库（SQLite）
-- 不拆分微服务
-- 不引入消息队列
-- 不引入搜索引擎
+- 严格遵循框架版本约束. 如果需要升级, 需同时修改本文档
+- 不得引入新的后端框架
+- 不得引入新的 ORM 框架
+- 不得引入新的数据库系统
+- 不得引入额外验证库（统一使用 Zod）
 
 ## 分层结构
 
@@ -63,6 +56,144 @@
 - 所有外部输入必须经过 Zod 校验. 禁止跳过 validator 直接处理原始输入
 - Zod Schema 是输入结构唯一来源
 - 校验必须在进入 service 前完成
+
+## 架构图
+
+C1 System Context:
+
+```mermaid
+flowchart LR
+    User["用户"]
+    System["Issue Tracking System<br/>单体 Web 应用"]
+    DB[("SQLite 数据库")]
+
+    User -->|"浏览器访问 / 登录 / 管理 Project 与 Issue"| System
+    System -->|"读写业务数据"| DB
+```
+
+C2 Container Diagram:
+
+```mermaid
+flowchart LR
+    User["用户"]
+
+    subgraph System["Issue Tracking System"]
+        Web["Web / API 应用<br/>Next.js App Router"]
+        Service["领域服务层<br/>lib/services"]
+        Auth["认证模块<br/>lib/auth"]
+        Validator["输入校验模块<br/>lib/validators"]
+        DBAccess["数据访问层<br/>lib/db"]
+        Audit["审计能力<br/>lib/audit"]
+    end
+
+    SQLite[("SQLite")]
+
+    User -->|"HTTP / Cookie Session"| Web
+    Web -->|"调用"| Validator
+    Web -->|"调用"| Auth
+    Web -->|"调用"| Service
+
+    Service -->|"认证上下文"| Auth
+    Service -->|"读写数据"| DBAccess
+    Service -->|"写入审计记录"| Audit
+
+    Audit -->|"持久化"| DBAccess
+    DBAccess --> SQLite
+```
+
+C3 Component Diagram:
+
+```mermaid
+flowchart TB
+    subgraph Web["Web / API 层"]
+        AuthAPI["Auth API<br/>register / login / logout / me"]
+        ProjectAPI["Project API<br/>create / list / detail"]
+        IssueAPI["Issue API<br/>create / list / detail"]
+        StatusAPI["Issue Status API<br/>status transition"]
+        CommentAPI["Comment API<br/>create / list"]
+        AssigneeAPI["Assignee API<br/>set / change / clear"]
+    end
+
+    subgraph Validation["校验层"]
+        AuthValidator["Auth Validators"]
+        ProjectValidator["Project Validators"]
+        IssueValidator["Issue Validators"]
+        StatusValidator["Status Validators"]
+        CommentValidator["Comment Validators"]
+        AssigneeValidator["Assignee Validators"]
+    end
+
+    subgraph Services["服务层"]
+        AuthService["Auth Service"]
+        ProjectService["Project Service"]
+        IssueService["Issue Service"]
+        IssueStatusService["Issue Status Service"]
+        CommentService["Comment Service"]
+        AssigneeService["Assignee Service"]
+        AuditService["Audit Service"]
+    end
+
+    subgraph Infra["基础设施层"]
+        AuthModule["Auth Context / Session"]
+        DBLayer["DB Access Layer"]
+    end
+
+    subgraph Data["SQLite"]
+        Users[("users")]
+        Sessions[("sessions / auth session")]
+        Projects[("projects")]
+        Issues[("issues")]
+        IssueComments[("issue_comments")]
+        IssueAuditLogs[("issue_audit_logs")]
+    end
+
+    AuthAPI --> AuthValidator
+    AuthAPI --> AuthService
+
+    ProjectAPI --> ProjectValidator
+    ProjectAPI --> ProjectService
+
+    IssueAPI --> IssueValidator
+    IssueAPI --> IssueService
+
+    StatusAPI --> StatusValidator
+    StatusAPI --> IssueStatusService
+
+    CommentAPI --> CommentValidator
+    CommentAPI --> CommentService
+
+    AssigneeAPI --> AssigneeValidator
+    AssigneeAPI --> AssigneeService
+
+    AuthService --> AuthModule
+    AuthService --> DBLayer
+
+    ProjectService --> AuthModule
+    ProjectService --> DBLayer
+
+    IssueService --> AuthModule
+    IssueService --> DBLayer
+    IssueService --> AuditService
+
+    IssueStatusService --> AuthModule
+    IssueStatusService --> DBLayer
+    IssueStatusService --> AuditService
+
+    CommentService --> AuthModule
+    CommentService --> DBLayer
+
+    AssigneeService --> AuthModule
+    AssigneeService --> DBLayer
+
+    AuditService --> DBLayer
+
+    DBLayer --> Users
+    DBLayer --> Sessions
+    DBLayer --> Projects
+    DBLayer --> Issues
+    DBLayer --> IssueComments
+    DBLayer --> IssueAuditLogs
+```
 
 ## 权限模型
 

@@ -95,7 +95,6 @@ AuditLog
 
 OPEN  
 IN_PROGRESS  
-RESOLVED  
 CLOSED
 
 允许转换：

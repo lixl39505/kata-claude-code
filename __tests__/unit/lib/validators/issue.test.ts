@@ -1,4 +1,4 @@
-import { createIssueSchema, issueIdSchema, updateIssueStateSchema, updateIssueAssigneeSchema } from '@/lib/validators/issue';
+import { createIssueSchema, issueIdSchema, updateIssueStateSchema, updateIssueAssigneeSchema, batchUpdateIssuesSchema } from '@/lib/validators/issue';
 import { ZodError } from 'zod';
 
 describe('Issue Validators', () => {
@@ -195,6 +195,111 @@ describe('Issue Validators', () => {
       expect(() =>
         updateIssueAssigneeSchema.parse({ assigneeId: undefined })
       ).toThrow(ZodError);
+    });
+  });
+
+  describe('batchUpdateIssuesSchema', () => {
+    const validData = {
+      issueIds: ['issue-1', 'issue-2', 'issue-3'],
+      state: 'CLOSED' as const,
+    };
+
+    it('should validate batch update with state change', () => {
+      const result = batchUpdateIssuesSchema.parse(validData);
+      expect(result).toEqual(validData);
+    });
+
+    it('should validate batch update with assignee change', () => {
+      const data = {
+        issueIds: ['issue-1', 'issue-2'],
+        assigneeId: '123e4567-e89b-12d3-a456-426614174000',
+      };
+      const result = batchUpdateIssuesSchema.parse(data);
+      expect(result).toEqual(data);
+    });
+
+    it('should validate batch update with both state and assignee changes', () => {
+      const data = {
+        issueIds: ['issue-1'],
+        state: 'CLOSED' as const,
+        assigneeId: '123e4567-e89b-12d3-a456-426614174000',
+      };
+      const result = batchUpdateIssuesSchema.parse(data);
+      expect(result).toEqual(data);
+    });
+
+    it('should validate batch update with null assignee', () => {
+      const data = {
+        issueIds: ['issue-1'],
+        assigneeId: null,
+      };
+      const result = batchUpdateIssuesSchema.parse(data);
+      expect(result).toEqual(data);
+    });
+
+    it('should reject empty issueIds array', () => {
+      const data = {
+        issueIds: [],
+        state: 'CLOSED' as const,
+      };
+      expect(() => batchUpdateIssuesSchema.parse(data)).toThrow(ZodError);
+    });
+
+    it('should reject issueIds with empty strings', () => {
+      const data = {
+        issueIds: ['issue-1', '', 'issue-3'],
+        state: 'CLOSED' as const,
+      };
+      expect(() => batchUpdateIssuesSchema.parse(data)).toThrow(ZodError);
+    });
+
+    it('should reject batch with more than 100 issues', () => {
+      const data = {
+        issueIds: Array.from({ length: 101 }, (_, i) => `issue-${i}`),
+        state: 'CLOSED' as const,
+      };
+      expect(() => batchUpdateIssuesSchema.parse(data)).toThrow(ZodError);
+    });
+
+    it('should accept exactly 100 issues', () => {
+      const data = {
+        issueIds: Array.from({ length: 100 }, (_, i) => `issue-${i}`),
+        state: 'CLOSED' as const,
+      };
+      const result = batchUpdateIssuesSchema.parse(data);
+      expect(result.issueIds).toHaveLength(100);
+    });
+
+    it('should reject batch with no update fields', () => {
+      const data = {
+        issueIds: ['issue-1'],
+      };
+      expect(() => batchUpdateIssuesSchema.parse(data)).toThrow(ZodError);
+    });
+
+    it('should reject invalid state values', () => {
+      const data = {
+        issueIds: ['issue-1'],
+        state: 'INVALID_STATE',
+      };
+      expect(() => batchUpdateIssuesSchema.parse(data)).toThrow(ZodError);
+    });
+
+    it('should reject invalid assigneeId format', () => {
+      const data = {
+        issueIds: ['issue-1'],
+        assigneeId: 'not-a-uuid',
+      };
+      expect(() => batchUpdateIssuesSchema.parse(data)).toThrow(ZodError);
+    });
+
+    it('should accept single issue in batch', () => {
+      const data = {
+        issueIds: ['issue-1'],
+        state: 'OPEN' as const,
+      };
+      const result = batchUpdateIssuesSchema.parse(data);
+      expect(result).toEqual(data);
     });
   });
 });

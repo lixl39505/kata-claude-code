@@ -109,7 +109,7 @@ flowchart TB
         AuthAPI["Auth API<br/>register / login / logout / me"]
         ProjectAPI["Project API<br/>create / list / detail"]
         ProjectMemberAPI["Project Member API<br/>add / remove / list"]
-        IssueAPI["Issue API<br/>create / list / detail"]
+        IssueAPI["Issue API<br/>create / list / detail / batch"]
         StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]
@@ -258,6 +258,7 @@ flowchart TB
 - 角色变更
 - 添加 Project 成员
 - 移除 Project 成员
+- 批量 Issue 操作（状态 / 指派）
 
 规则：
 

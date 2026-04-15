@@ -66,3 +66,35 @@ export const issueFiltersSchema = z.object({
 });
 
 export type IssueFiltersInput = z.infer<typeof issueFiltersSchema>;
+
+export const batchUpdateIssuesSchema = z
+  .object({
+    issueIds: z
+      .array(z.string().min(1, 'Issue ID cannot be empty'))
+      .min(1, 'At least one issue ID is required')
+      .max(100, 'Cannot batch update more than 100 issues at once'),
+    state: z.enum(['OPEN', 'CLOSED']).optional(),
+    assigneeId: z.string().uuid('Invalid assignee ID').nullable().optional(),
+  })
+  .refine(
+    (data) => data.state !== undefined || data.assigneeId !== undefined,
+    {
+      message: 'At least one update field (state or assigneeId) must be provided',
+      path: ['root'],
+    }
+  )
+  .refine(
+    (data) => {
+      // Validate state transition rules
+      if (data.state === 'OPEN') {
+        return true; // OPEN state never has closeReason
+      }
+      return true; // CLOSED state validation handled in service layer
+    },
+    {
+      message: 'Invalid state transition',
+      path: ['state'],
+    }
+  );
+
+export type BatchUpdateIssuesInput = z.infer<typeof batchUpdateIssuesSchema>;

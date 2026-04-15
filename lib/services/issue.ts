@@ -13,7 +13,7 @@ import { isProjectMember as isProjectMemberDb } from '@/lib/db/project-members';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError } from '@/lib/errors/helpers';
-import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput } from '@/lib/validators/issue';
+import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput, BatchUpdateIssuesInput } from '@/lib/validators/issue';
 
 export interface Issue {
   id: string;
@@ -399,4 +399,143 @@ export async function listIssuesWithFilters(
       },
     };
   }
+}
+
+/**
+ * Batch update multiple issues
+ */
+export async function batchUpdateIssues(data: BatchUpdateIssuesInput): Promise<{
+  success: true;
+  updatedCount: number;
+}> {
+  const db = getDb();
+  const user = await requireAuthenticatedUser();
+
+  // Validate all issue IDs exist and user has access to them
+  const issuesToUpdate: Issue[] = [];
+  const projectsMap = new Map<string, boolean>(); // Cache project membership checks
+
+  for (const issueId of data.issueIds) {
+    const issue = findIssueById(db, issueId);
+    if (!issue) {
+      throw new NotFoundError(`Issue ${issueId} not found`);
+    }
+
+    // Check if user is a member of the project (use cache if available)
+    let hasAccess = projectsMap.get(issue.projectId);
+    if (hasAccess === undefined) {
+      hasAccess = isProjectMemberDb(db, issue.projectId, user.id);
+      projectsMap.set(issue.projectId, hasAccess);
+    }
+
+    if (!hasAccess) {
+      throw new ForbiddenError(`You do not have access to issue ${issueId}`);
+    }
+
+    issuesToUpdate.push(issue);
+  }
+
+  // If setting an assignee, verify the user exists and is a member of all affected projects
+  if (data.assigneeId !== undefined) {
+    if (data.assigneeId !== null) {
+      const assignee = findUserById(db, data.assigneeId);
+      if (!assignee) {
+        throw new NotFoundError('Assignee');
+      }
+
+      // Verify assignee is a member of all unique projects affected by this batch
+      const uniqueProjectIds = [...new Set(issuesToUpdate.map(issue => issue.projectId))];
+      for (const projectId of uniqueProjectIds) {
+        if (!isProjectMemberDb(db, projectId, data.assigneeId)) {
+          throw new ForbiddenError('Assignee must be a member of all affected projects');
+        }
+      }
+    }
+  }
+
+  // Validate state transitions and prepare updates
+  const updates: Array<{
+    issue: Issue;
+    newState?: IssueState;
+    newCloseReason: CloseReason | null;
+  }> = [];
+
+  for (const issue of issuesToUpdate) {
+    const updateData: {
+      state?: IssueState;
+      closeReason?: CloseReason | null;
+    } = {};
+
+    // Handle state update
+    if (data.state !== undefined) {
+      validateStateTransition(issue.status as IssueState, data.state);
+      updateData.state = data.state;
+      updateData.closeReason = getCloseReasonForState(data.state);
+    }
+
+    updates.push({
+      issue,
+      newState: updateData.state,
+      newCloseReason: updateData.closeReason ?? null,
+    });
+  }
+
+  // Use transaction to ensure atomicity
+  let updatedCount = 0;
+  executeInTransactionAsync(db, (txnDb) => {
+    for (const { issue, newState, newCloseReason } of updates) {
+      const updateFields: {
+        status?: IssueState;
+        closeReason?: CloseReason | null;
+        assigneeId?: string | null;
+      } = {};
+
+      if (newState !== undefined) {
+        updateFields.status = newState;
+        updateFields.closeReason = newCloseReason;
+      }
+
+      if (data.assigneeId !== undefined) {
+        updateFields.assigneeId = data.assigneeId;
+      }
+
+      // Update the issue
+      const updatedIssue = updateIssue(txnDb, issue.id, updateFields);
+      if (!updatedIssue) {
+        throw new InternalError(`Failed to update issue ${issue.id}`);
+      }
+
+      // Write audit logs for changes
+      if (newState !== undefined && newState !== issue.status) {
+        createIssueAuditLog(txnDb, {
+          issueId: issue.id,
+          projectId: issue.projectId,
+          actorId: user.id,
+          action: 'ISSUE_STATUS_CHANGED',
+          fromStatus: issue.status,
+          toStatus: newState,
+        });
+      }
+
+      if (data.assigneeId !== undefined && data.assigneeId !== issue.assigneeId) {
+        createIssueAuditLog(txnDb, {
+          issueId: issue.id,
+          projectId: issue.projectId,
+          actorId: user.id,
+          action: 'ISSUE_ASSIGNEE_CHANGED',
+          fromAssigneeId: issue.assigneeId,
+          toAssigneeId: data.assigneeId,
+          fromStatus: null,
+          toStatus: null,
+        });
+      }
+
+      updatedCount++;
+    }
+  });
+
+  return {
+    success: true,
+    updatedCount,
+  };
 }

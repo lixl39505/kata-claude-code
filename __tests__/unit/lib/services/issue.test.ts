@@ -2,7 +2,7 @@ import {
   createIssueInProject,
   listIssuesForProject,
   getIssueByIdForProject,
-  updateIssueStatus,
+  updateIssueState,
   updateIssueAssignee,
 } from '@/lib/services/issue';
 import { getDb } from '@/lib/db';
@@ -12,7 +12,7 @@ import {
   NotFoundError,
   InvalidStateTransitionError,
 } from '@/lib/errors/helpers';
-import type { CreateIssueInput, UpdateIssueStatusInput, UpdateIssueAssigneeInput } from '@/lib/validators/issue';
+import type { CreateIssueInput, UpdateIssueStateInput, UpdateIssueAssigneeInput } from '@/lib/validators/issue';
 
 // Mock dependencies
 jest.mock('@/lib/db', () => ({
@@ -89,6 +89,7 @@ describe('Issue Service', () => {
     title: 'Fix login bug',
     description: 'Users cannot login',
     status: 'OPEN',
+    closeReason: null,
     createdById: 'user-123',
     assigneeId: null,
     createdAt: '2024-01-01T00:00:00.000Z',
@@ -356,20 +357,22 @@ describe('Issue Service', () => {
     });
   });
 
-  describe('updateIssueStatus', () => {
-    it('should allow OPEN → IN_PROGRESS transition', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+  describe('updateIssueState', () => {
+    it('should allow OPEN → CLOSED transition', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       const currentIssue = {
         ...mockIssue,
         status: 'OPEN',
+        closeReason: null,
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'IN_PROGRESS',
+        status: 'CLOSED',
+        closeReason: 'COMPLETED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -377,27 +380,32 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(currentIssue);
       mockUpdateIssueDb.mockReturnValue(updatedIssue);
 
-      const result = await updateIssueStatus('project-123', 'issue-123', input);
+      const result = await updateIssueState('project-123', 'issue-123', input);
 
-      expect(result.status).toBe('IN_PROGRESS');
+      expect(result.status).toBe('CLOSED');
+      expect(result.closeReason).toBe('COMPLETED');
       expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
-        status: 'IN_PROGRESS',
+        status: 'CLOSED',
+        closeReason: 'COMPLETED',
       });
     });
 
-    it('should allow OPEN → DONE transition', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'DONE',
+    it('should allow OPEN → CLOSED transition with explicit closeReason', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
+        closeReason: 'NOT_PLANNED',
       };
 
       const currentIssue = {
         ...mockIssue,
         status: 'OPEN',
+        closeReason: null,
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'DONE',
+        status: 'CLOSED',
+        closeReason: 'NOT_PLANNED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -405,24 +413,27 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(currentIssue);
       mockUpdateIssueDb.mockReturnValue(updatedIssue);
 
-      const result = await updateIssueStatus('project-123', 'issue-123', input);
+      const result = await updateIssueState('project-123', 'issue-123', input);
 
-      expect(result.status).toBe('DONE');
+      expect(result.status).toBe('CLOSED');
+      expect(result.closeReason).toBe('NOT_PLANNED');
     });
 
-    it('should allow IN_PROGRESS → DONE transition', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'DONE',
+    it('should allow CLOSED → OPEN transition', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'OPEN',
       };
 
       const currentIssue = {
         ...mockIssue,
-        status: 'IN_PROGRESS',
+        status: 'CLOSED',
+        closeReason: 'COMPLETED',
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'DONE',
+        status: 'OPEN',
+        closeReason: null,
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -430,49 +441,27 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(currentIssue);
       mockUpdateIssueDb.mockReturnValue(updatedIssue);
 
-      const result = await updateIssueStatus('project-123', 'issue-123', input);
-
-      expect(result.status).toBe('DONE');
-    });
-
-    it('should allow IN_PROGRESS → OPEN transition', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'OPEN',
-      };
-
-      const currentIssue = {
-        ...mockIssue,
-        status: 'IN_PROGRESS',
-      };
-
-      const updatedIssue = {
-        ...currentIssue,
-        status: 'OPEN',
-      };
-
-      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
-      mockFindProjectById.mockReturnValue(mockProject);
-      mockFindIssueById.mockReturnValue(currentIssue);
-      mockUpdateIssueDb.mockReturnValue(updatedIssue);
-
-      const result = await updateIssueStatus('project-123', 'issue-123', input);
+      const result = await updateIssueState('project-123', 'issue-123', input);
 
       expect(result.status).toBe('OPEN');
+      expect(result.closeReason).toBeNull();
     });
 
-    it('should allow DONE → OPEN transition', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'OPEN',
+    it('should default closeReason to COMPLETED when not provided', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       const currentIssue = {
         ...mockIssue,
-        status: 'DONE',
+        status: 'OPEN',
+        closeReason: null,
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'OPEN',
+        status: 'CLOSED',
+        closeReason: 'COMPLETED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -480,19 +469,20 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(currentIssue);
       mockUpdateIssueDb.mockReturnValue(updatedIssue);
 
-      const result = await updateIssueStatus('project-123', 'issue-123', input);
+      const result = await updateIssueState('project-123', 'issue-123', input);
 
-      expect(result.status).toBe('OPEN');
+      expect(result.closeReason).toBe('COMPLETED');
     });
 
-    it('should reject DONE → IN_PROGRESS transition', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+    it('should reject CLOSED → CLOSED transition (same state)', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       const currentIssue = {
         ...mockIssue,
-        status: 'DONE',
+        status: 'CLOSED',
+        closeReason: 'COMPLETED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -500,13 +490,33 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(currentIssue);
 
       await expect(
-        updateIssueStatus('project-123', 'issue-123', input)
+        updateIssueState('project-123', 'issue-123', input)
+      ).rejects.toThrow(InvalidStateTransitionError);
+    });
+
+    it('should reject OPEN → OPEN transition (same state)', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'OPEN',
+      };
+
+      const currentIssue = {
+        ...mockIssue,
+        status: 'OPEN',
+        closeReason: null,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockFindProjectById.mockReturnValue(mockProject);
+      mockFindIssueById.mockReturnValue(currentIssue);
+
+      await expect(
+        updateIssueState('project-123', 'issue-123', input)
       ).rejects.toThrow(InvalidStateTransitionError);
     });
 
     it('should throw UnauthenticatedError when user is not authenticated', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       mockRequireAuthenticatedUser.mockRejectedValue(
@@ -514,26 +524,26 @@ describe('Issue Service', () => {
       );
 
       await expect(
-        updateIssueStatus('project-123', 'issue-123', input)
+        updateIssueState('project-123', 'issue-123', input)
       ).rejects.toThrow(UnauthenticatedError);
     });
 
     it('should throw NotFoundError when project does not exist', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
       mockFindProjectById.mockReturnValue(null);
 
       await expect(
-        updateIssueStatus('non-existent-project', 'issue-123', input)
+        updateIssueState('non-existent-project', 'issue-123', input)
       ).rejects.toThrow(NotFoundError);
     });
 
     it('should throw NotFoundError when project belongs to different user', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       const otherUsersProject = {
@@ -545,13 +555,13 @@ describe('Issue Service', () => {
       mockFindProjectById.mockReturnValue(otherUsersProject);
 
       await expect(
-        updateIssueStatus('project-123', 'issue-123', input)
+        updateIssueState('project-123', 'issue-123', input)
       ).rejects.toThrow(NotFoundError);
     });
 
     it('should throw NotFoundError when issue does not exist', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -559,13 +569,13 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(null);
 
       await expect(
-        updateIssueStatus('project-123', 'non-existent-issue', input)
+        updateIssueState('project-123', 'non-existent-issue', input)
       ).rejects.toThrow(NotFoundError);
     });
 
     it('should throw NotFoundError when issue belongs to different project', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       const otherProjectsIssue = {
@@ -578,24 +588,26 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(otherProjectsIssue);
 
       await expect(
-        updateIssueStatus('project-123', 'issue-123', input)
+        updateIssueState('project-123', 'issue-123', input)
       ).rejects.toThrow(NotFoundError);
     });
 
     it('should update updated_at timestamp', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       const currentIssue = {
         ...mockIssue,
         status: 'OPEN',
+        closeReason: null,
         updatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'IN_PROGRESS',
+        status: 'CLOSED',
+        closeReason: 'COMPLETED',
         updatedAt: '2024-01-02T00:00:00.000Z',
       };
 
@@ -604,24 +616,27 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(currentIssue);
       mockUpdateIssueDb.mockReturnValue(updatedIssue);
 
-      const result = await updateIssueStatus('project-123', 'issue-123', input);
+      const result = await updateIssueState('project-123', 'issue-123', input);
 
       expect(result.updatedAt).toBe('2024-01-02T00:00:00.000Z');
     });
 
-    it('should return updated issue with new status', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'DONE',
+    it('should return updated issue with new state', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
+        closeReason: 'DUPLICATE',
       };
 
       const currentIssue = {
         ...mockIssue,
-        status: 'IN_PROGRESS',
+        status: 'OPEN',
+        closeReason: null,
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'DONE',
+        status: 'CLOSED',
+        closeReason: 'DUPLICATE',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -629,10 +644,11 @@ describe('Issue Service', () => {
       mockFindIssueById.mockReturnValue(currentIssue);
       mockUpdateIssueDb.mockReturnValue(updatedIssue);
 
-      const result = await updateIssueStatus('project-123', 'issue-123', input);
+      const result = await updateIssueState('project-123', 'issue-123', input);
 
       expect(result).toEqual(updatedIssue);
-      expect(result.status).toBe('DONE');
+      expect(result.status).toBe('CLOSED');
+      expect(result.closeReason).toBe('DUPLICATE');
     });
   });
 
@@ -707,20 +723,22 @@ describe('Issue Service', () => {
     });
   });
 
-  describe('updateIssueStatus with audit logging', () => {
-    it('should create audit log when status changes', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'IN_PROGRESS',
+  describe('updateIssueState with audit logging', () => {
+    it('should create audit log when state changes', async () => {
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
       };
 
       const currentIssue = {
         ...mockIssue,
         status: 'OPEN',
+        closeReason: null,
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'IN_PROGRESS',
+        status: 'CLOSED',
+        closeReason: 'COMPLETED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -734,13 +752,13 @@ describe('Issue Service', () => {
         actorId: 'user-123',
         action: 'ISSUE_STATUS_CHANGED',
         fromStatus: 'OPEN',
-        toStatus: 'IN_PROGRESS',
+        toStatus: 'CLOSED',
         fromAssigneeId: null,
         toAssigneeId: null,
         createdAt: '2024-01-01T00:00:00.000Z',
       });
 
-      await updateIssueStatus('project-123', 'issue-123', input);
+      await updateIssueState('project-123', 'issue-123', input);
 
       expect(mockCreateIssueAuditLog).toHaveBeenCalledWith(
         mockDb,
@@ -750,24 +768,27 @@ describe('Issue Service', () => {
           actorId: 'user-123',
           action: 'ISSUE_STATUS_CHANGED',
           fromStatus: 'OPEN',
-          toStatus: 'IN_PROGRESS',
+          toStatus: 'CLOSED',
         })
       );
     });
 
     it('should have correct fromStatus and toStatus in audit log', async () => {
-      const input: UpdateIssueStatusInput = {
-        status: 'DONE',
+      const input: UpdateIssueStateInput = {
+        state: 'CLOSED',
+        closeReason: 'NOT_PLANNED',
       };
 
       const currentIssue = {
         ...mockIssue,
-        status: 'IN_PROGRESS',
+        status: 'OPEN',
+        closeReason: null,
       };
 
       const updatedIssue = {
         ...currentIssue,
-        status: 'DONE',
+        status: 'CLOSED',
+        closeReason: 'NOT_PLANNED',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -780,21 +801,21 @@ describe('Issue Service', () => {
         projectId: 'project-123',
         actorId: 'user-123',
         action: 'ISSUE_STATUS_CHANGED',
-        fromStatus: 'IN_PROGRESS',
-        toStatus: 'DONE',
+        fromStatus: 'OPEN',
+        toStatus: 'CLOSED',
         fromAssigneeId: null,
         toAssigneeId: null,
         createdAt: '2024-01-01T00:00:00.000Z',
       });
 
-      await updateIssueStatus('project-123', 'issue-123', input);
+      await updateIssueState('project-123', 'issue-123', input);
 
       expect(mockCreateIssueAuditLog).toHaveBeenCalledTimes(1);
       const auditCallArgs = mockCreateIssueAuditLog.mock.calls[0];
       expect(auditCallArgs[1]).toMatchObject({
         action: 'ISSUE_STATUS_CHANGED',
-        fromStatus: 'IN_PROGRESS',
-        toStatus: 'DONE',
+        fromStatus: 'OPEN',
+        toStatus: 'CLOSED',
       });
     });
   });

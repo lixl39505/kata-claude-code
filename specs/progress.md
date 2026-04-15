@@ -9,14 +9,14 @@
 - 用户认证（register / login / session）
 - Project 基础能力（创建 / 列表 / 访问控制）
 - Issue 基础能力（创建 / 列表 / 详情）
-- Issue 状态流转（状态机）
+- Issue 状态流转（GitHub 风格二态模型 + 关闭原因）
 - Issue 审计日志（创建 / 状态变更记录）
 - Issue 评论（创建 / 列表）
 - Issue 指派（assignee）
 
 ## 当前任务
 
-- Issue 查询与筛选能力（task-009-issue-query-and-filtering）
+- Issue 状态模型重构（task-010-issue-state-github-style）- 已完成
 
 ## 近期待办候选
 

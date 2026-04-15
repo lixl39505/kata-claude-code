@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateIssueStatus } from '@/lib/services/issue';
-import { updateIssueStatusSchema, projectIdSchema, issueIdSchema } from '@/lib/validators/issue';
+import { updateIssueState } from '@/lib/services/issue';
+import { updateIssueStateSchema, projectIdSchema, issueIdSchema } from '@/lib/validators/issue';
 import { AppError } from '@/lib/errors/helpers';
 import { ZodError } from 'zod';
 
@@ -16,9 +16,9 @@ export async function PATCH(
     };
 
     const body = await request.json();
-    const validatedData = updateIssueStatusSchema.parse(body);
+    const validatedData = updateIssueStateSchema.parse(body);
 
-    const issue = await updateIssueStatus(
+    const issue = await updateIssueState(
       validatedParams.projectId,
       validatedParams.issueId,
       validatedData
@@ -53,7 +53,7 @@ export async function PATCH(
       });
     }
 
-    console.error('Unexpected error in update issue status:', error);
+    console.error('Unexpected error in update issue state:', error);
     return NextResponse.json(
       {
         code: 'INTERNAL',

@@ -35,13 +35,17 @@ CREATE TABLE IF NOT EXISTS issues (
   title TEXT NOT NULL,
   description TEXT,
   status TEXT NOT NULL,
+  close_reason TEXT,
   created_by_id TEXT NOT NULL,
   assignee_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
   FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+  CHECK (status IN ('OPEN', 'CLOSED')),
+  CHECK (close_reason IS NULL OR status = 'CLOSED'),
+  CHECK (close_reason IS NULL OR close_reason IN ('COMPLETED', 'NOT_PLANNED', 'DUPLICATE'))
 );
 
 -- Indexes for project lookups

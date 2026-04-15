@@ -73,7 +73,8 @@ Issue
 
 - title
 - description
-- status
+- state (OPEN/CLOSED)
+- closeReason (COMPLETED/NOT_PLANNED/DUPLICATE)
 - priority
 - reporter
 - assignee
@@ -91,20 +92,30 @@ AuditLog
 
 ## Issue 状态
 
+状态模型采用 GitHub 风格的二态模型：
+
 状态：
 
 OPEN  
-IN_PROGRESS  
 CLOSED
+
+关闭原因：
+
+COMPLETED  
+NOT_PLANNED  
+DUPLICATE
 
 允许转换：
 
-OPEN → IN_PROGRESS  
-IN_PROGRESS → RESOLVED  
-RESOLVED → CLOSED  
-RESOLVED → IN_PROGRESS
+OPEN → CLOSED  
+CLOSED → OPEN
 
-禁止跳跃转换。
+规则：
+
+- OPEN 状态下 closeReason 必须为空
+- CLOSED 状态下 closeReason 必须有值
+- 关闭 Issue 时未指定 closeReason，默认为 COMPLETED
+- 重新打开 Issue 时，closeReason 自动清空
 
 ## 功能
 
@@ -124,8 +135,8 @@ Issue
 - Member / Admin 可创建
 - 创建者或 Admin 可编辑
 - 可指派负责人
-- 状态变更必须合法
-- 可按 project / status / assignee 过滤
+- 状态变更必须合法（OPEN ↔ CLOSED）
+- 可按 project / state / assignee 过滤
 
 评论
 
@@ -149,6 +160,6 @@ Issue
 1. Admin 创建项目
 2. Member 创建 Issue
 3. 指派负责人
-4. 状态推进至 RESOLVED
-5. Admin 关闭 Issue
+4. 状态变更（OPEN → CLOSED）
+5. Admin 重新打开 Issue（CLOSED → OPEN）
 6. 审计日志可追溯全部过程

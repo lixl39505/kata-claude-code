@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export type IssueStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE';
+export type IssueState = 'OPEN' | 'CLOSED';
+export type CloseReason = 'COMPLETED' | 'NOT_PLANNED' | 'DUPLICATE';
 
 export const createIssueSchema = z.object({
   title: z
@@ -28,11 +29,27 @@ export type IssueIdInput = z.infer<typeof issueIdSchema>;
 // Re-export projectIdSchema for use in issue routes
 export { projectIdSchema, type ProjectIdInput } from './project';
 
-export const updateIssueStatusSchema = z.object({
-  status: z.enum(['OPEN', 'IN_PROGRESS', 'DONE']),
-});
+export const updateIssueStateSchema = z
+  .object({
+    state: z.enum(['OPEN', 'CLOSED']),
+    closeReason: z.enum(['COMPLETED', 'NOT_PLANNED', 'DUPLICATE']).optional(),
+  })
+  .refine(
+    (data) => {
+      // When state is OPEN, closeReason must not be provided
+      if (data.state === 'OPEN' && data.closeReason !== undefined) {
+        return false;
+      }
+      // When state is CLOSED, closeReason is optional (defaults to COMPLETED)
+      return true;
+    },
+    {
+      message: 'closeReason can only be provided when state is CLOSED',
+      path: ['closeReason'],
+    }
+  );
 
-export type UpdateIssueStatusInput = z.infer<typeof updateIssueStatusSchema>;
+export type UpdateIssueStateInput = z.infer<typeof updateIssueStateSchema>;
 
 export const updateIssueAssigneeSchema = z.object({
   assigneeId: z.string().uuid('Invalid assignee ID').nullable(),
@@ -42,7 +59,7 @@ export type UpdateIssueAssigneeInput = z.infer<typeof updateIssueAssigneeSchema>
 
 export const issueFiltersSchema = z.object({
   projectId: z.string().uuid('Invalid project ID').optional(),
-  status: z.enum(['OPEN', 'IN_PROGRESS', 'DONE']).optional(),
+  state: z.enum(['OPEN', 'CLOSED']).optional(),
   assigneeId: z.string().uuid('Invalid assignee ID').optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),

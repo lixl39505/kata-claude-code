@@ -71,6 +71,7 @@ describe('Issue Comment Service', () => {
     title: 'Test Issue',
     description: 'A test issue',
     status: 'OPEN',
+    closeReason: null,
     createdById: 'user-123',
     assigneeId: null,
     createdAt: '2024-01-01T00:00:00.000Z',

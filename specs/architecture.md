@@ -109,7 +109,7 @@ flowchart TB
         AuthAPI["Auth API<br/>register / login / logout / me"]
         ProjectAPI["Project API<br/>create / list / detail"]
         IssueAPI["Issue API<br/>create / list / detail"]
-        StatusAPI["Issue Status API<br/>status transition"]
+        StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]
     end
@@ -118,7 +118,7 @@ flowchart TB
         AuthValidator["Auth Validators"]
         ProjectValidator["Project Validators"]
         IssueValidator["Issue Validators"]
-        StatusValidator["Status Validators"]
+        StateValidator["State Validators"]
         CommentValidator["Comment Validators"]
         AssigneeValidator["Assignee Validators"]
     end
@@ -127,7 +127,7 @@ flowchart TB
         AuthService["Auth Service"]
         ProjectService["Project Service"]
         IssueService["Issue Service"]
-        IssueStatusService["Issue Status Service"]
+        IssueStateService["Issue State Service"]
         CommentService["Comment Service"]
         AssigneeService["Assignee Service"]
         AuditService["Audit Service"]
@@ -211,32 +211,12 @@ flowchart TB
 - 所有认证逻辑必须复用已有认证能力（位于 `./lib/service/auth）
 - 必须通过统一方法获取当前用户信息（如 `getCurrentUser`）. 禁止从 request 中手动解析用户信息
 
-## Issue 状态机
-
-状态：
-
-OPEN  
-IN_PROGRESS  
-RESOLVED  
-CLOSED
-
-允许转换：
-
-OPEN → IN_PROGRESS  
-IN_PROGRESS → RESOLVED  
-RESOLVED → CLOSED  
-RESOLVED → IN_PROGRESS
-
-规则：
-
-- 状态变更必须通过统一状态机函数
-- 禁止直接修改状态字段
-- 非法转换必须抛出错误
-- 状态变更必须原子执行
-
 ## 并发控制
 
 - Issue 更新必须使用乐观锁（updatedAt 或 version）
+  - 状态变更必须原子执行
+- Issue 状态变更必须通过统一状态机函数, 禁止直接修改状态字段
+  - 非法转换必须抛出错误
 - 发生冲突必须返回 CONFLICT 错误
 - 禁止静默覆盖
 

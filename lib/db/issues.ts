@@ -7,6 +7,7 @@ export interface Issue {
   title: string;
   description: string | null;
   status: string;
+  closeReason: string | null;
   createdById: string;
   assigneeId: string | null;
   createdAt: string;
@@ -18,6 +19,7 @@ export interface IssueData {
   title: string;
   description: string | null;
   status: string;
+  closeReason?: string | null;
   createdById: string;
   assigneeId?: string | null;
 }
@@ -27,11 +29,11 @@ export function createIssue(db: Database.Database, data: IssueData): Issue {
   const id = randomUUID();
 
   const stmt = db.prepare(`
-    INSERT INTO issues (id, project_id, title, description, status, created_by_id, assignee_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO issues (id, project_id, title, description, status, close_reason, created_by_id, assignee_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  stmt.run(id, data.projectId, data.title, data.description, data.status, data.createdById, data.assigneeId ?? null, now, now);
+  stmt.run(id, data.projectId, data.title, data.description, data.status, data.closeReason ?? null, data.createdById, data.assigneeId ?? null, now, now);
 
   return {
     id,
@@ -39,6 +41,7 @@ export function createIssue(db: Database.Database, data: IssueData): Issue {
     title: data.title,
     description: data.description,
     status: data.status,
+    closeReason: data.closeReason ?? null,
     createdById: data.createdById,
     assigneeId: data.assigneeId ?? null,
     createdAt: now,
@@ -48,7 +51,7 @@ export function createIssue(db: Database.Database, data: IssueData): Issue {
 
 export function findIssuesByProjectId(db: Database.Database, projectId: string): Issue[] {
   const stmt = db.prepare(`
-    SELECT id, project_id as projectId, title, description, status, created_by_id as createdById, assignee_id as assigneeId, created_at as createdAt, updated_at as updatedAt
+    SELECT id, project_id as projectId, title, description, status, close_reason as closeReason, created_by_id as createdById, assignee_id as assigneeId, created_at as createdAt, updated_at as updatedAt
     FROM issues
     WHERE project_id = ?
     ORDER BY created_at DESC
@@ -59,7 +62,7 @@ export function findIssuesByProjectId(db: Database.Database, projectId: string):
 
 export function findIssueById(db: Database.Database, issueId: string): Issue | null {
   const stmt = db.prepare(`
-    SELECT id, project_id as projectId, title, description, status, created_by_id as createdById, assignee_id as assigneeId, created_at as createdAt, updated_at as updatedAt
+    SELECT id, project_id as projectId, title, description, status, close_reason as closeReason, created_by_id as createdById, assignee_id as assigneeId, created_at as createdAt, updated_at as updatedAt
     FROM issues
     WHERE id = ?
   `);
@@ -71,7 +74,7 @@ export function findIssueById(db: Database.Database, issueId: string): Issue | n
 export function updateIssue(
   db: Database.Database,
   issueId: string,
-  updates: Partial<Pick<IssueData, 'status' | 'assigneeId'>>
+  updates: Partial<Pick<IssueData, 'status' | 'closeReason' | 'assigneeId'>>
 ): Issue | null {
   const current = findIssueById(db, issueId);
   if (!current) return null;
@@ -83,6 +86,11 @@ export function updateIssue(
   if (updates.status !== undefined) {
     fields.push('status = ?');
     values.push(updates.status);
+  }
+
+  if (updates.closeReason !== undefined) {
+    fields.push('close_reason = ?');
+    values.push(updates.closeReason);
   }
 
   if (updates.assigneeId !== undefined) {
@@ -110,6 +118,7 @@ export function updateIssue(
 export interface IssueFilters {
   projectId?: string;
   status?: string;
+  closeReason?: string;
   assigneeId?: string;
 }
 
@@ -128,6 +137,11 @@ export function countIssuesWithFilters(
   if (filters.status) {
     conditions.push('status = ?');
     values.push(filters.status);
+  }
+
+  if (filters.closeReason) {
+    conditions.push('close_reason = ?');
+    values.push(filters.closeReason);
   }
 
   if (filters.assigneeId) {
@@ -160,6 +174,11 @@ export function findIssuesWithFilters(
     values.push(filters.status);
   }
 
+  if (filters.closeReason) {
+    conditions.push('close_reason = ?');
+    values.push(filters.closeReason);
+  }
+
   if (filters.assigneeId) {
     conditions.push('assignee_id = ?');
     values.push(filters.assigneeId);
@@ -168,7 +187,7 @@ export function findIssuesWithFilters(
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const stmt = db.prepare(`
-    SELECT id, project_id as projectId, title, description, status,
+    SELECT id, project_id as projectId, title, description, status, close_reason as closeReason,
            created_by_id as createdById, assignee_id as assigneeId,
            created_at as createdAt, updated_at as updatedAt
     FROM issues

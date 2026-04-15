@@ -12,7 +12,7 @@ import { findUserById } from '@/lib/db/users';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { NotFoundError, InvalidStateTransitionError, InternalError } from '@/lib/errors/helpers';
-import type { CreateIssueInput, IssueStatus, UpdateIssueStatusInput, UpdateIssueAssigneeInput, IssueFiltersInput } from '@/lib/validators/issue';
+import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput } from '@/lib/validators/issue';
 
 export interface Issue {
   id: string;
@@ -20,6 +20,7 @@ export interface Issue {
   title: string;
   description: string | null;
   status: string;
+  closeReason: string | null;
   createdById: string;
   assigneeId: string | null;
   createdAt: string;
@@ -115,23 +116,30 @@ export async function getIssueByIdForProject(
 }
 
 // State transition matrix
-const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
-  OPEN: ['IN_PROGRESS', 'DONE'],
-  IN_PROGRESS: ['DONE', 'OPEN'],
-  DONE: ['OPEN'],
+const VALID_TRANSITIONS: Record<IssueState, IssueState[]> = {
+  OPEN: ['CLOSED'],
+  CLOSED: ['OPEN'],
 };
 
-function validateStateTransition(from: IssueStatus, to: IssueStatus): void {
+function validateStateTransition(from: IssueState, to: IssueState): void {
   const allowedTargets = VALID_TRANSITIONS[from];
   if (!allowedTargets.includes(to)) {
     throw new InvalidStateTransitionError(from, to);
   }
 }
 
-export async function updateIssueStatus(
+function getCloseReasonForState(state: IssueState, providedReason?: CloseReason): CloseReason | null {
+  if (state === 'OPEN') {
+    return null;
+  }
+  // For CLOSED state, default to COMPLETED if not provided
+  return providedReason || 'COMPLETED';
+}
+
+export async function updateIssueState(
   projectId: string,
   issueId: string,
-  data: UpdateIssueStatusInput
+  data: UpdateIssueStateInput
 ): Promise<Issue> {
   const db = getDb();
   const user = await requireAuthenticatedUser();
@@ -155,29 +163,33 @@ export async function updateIssueStatus(
 
   // Validate state transition
   validateStateTransition(
-    currentIssue.status as IssueStatus,
-    data.status
+    currentIssue.status as IssueState,
+    data.state
   );
+
+  // Determine closeReason based on state and provided value
+  const closeReason = getCloseReasonForState(data.state, data.closeReason);
 
   // Use transaction to ensure atomicity of status update and audit logging
   return executeInTransactionAsync(db, (txnDb) => {
-    // Update issue status
+    // Update issue state and closeReason
     const updatedIssue = updateIssue(txnDb, issueId, {
-      status: data.status,
+      status: data.state,
+      closeReason: closeReason,
     });
 
     if (!updatedIssue) {
-      throw new InternalError('Failed to update issue');
+      throw new InternalError('Failed to update issue state');
     }
 
-    // Write audit log for status change
+    // Write audit log for state change
     createIssueAuditLog(txnDb, {
       issueId: issueId,
       projectId: projectId,
       actorId: user.id,
       action: 'ISSUE_STATUS_CHANGED',
       fromStatus: currentIssue.status,
-      toStatus: data.status,
+      toStatus: data.state,
     });
 
     return updatedIssue;
@@ -306,8 +318,8 @@ export async function listIssuesWithFilters(
     dbFilters.projectId = filters.projectId;
   }
 
-  if (filters.status) {
-    dbFilters.status = filters.status;
+  if (filters.state) {
+    dbFilters.status = filters.state;
   }
 
   if (filters.assigneeId) {

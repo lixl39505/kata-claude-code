@@ -1,4 +1,4 @@
-import { createIssueSchema, issueIdSchema, updateIssueStatusSchema, updateIssueAssigneeSchema } from '@/lib/validators/issue';
+import { createIssueSchema, issueIdSchema, updateIssueStateSchema, updateIssueAssigneeSchema } from '@/lib/validators/issue';
 import { ZodError } from 'zod';
 
 describe('Issue Validators', () => {
@@ -113,31 +113,53 @@ describe('Issue Validators', () => {
     });
   });
 
-  describe('updateIssueStatusSchema', () => {
-    it('should validate OPEN status', () => {
-      const result = updateIssueStatusSchema.parse({ status: 'OPEN' });
-      expect(result).toEqual({ status: 'OPEN' });
+  describe('updateIssueStateSchema', () => {
+    it('should validate OPEN state', () => {
+      const result = updateIssueStateSchema.parse({ state: 'OPEN' });
+      expect(result).toEqual({ state: 'OPEN' });
     });
 
-    it('should validate IN_PROGRESS status', () => {
-      const result = updateIssueStatusSchema.parse({ status: 'IN_PROGRESS' });
-      expect(result).toEqual({ status: 'IN_PROGRESS' });
+    it('should validate CLOSED state', () => {
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED' });
+      expect(result).toEqual({ state: 'CLOSED' });
     });
 
-    it('should validate DONE status', () => {
-      const result = updateIssueStatusSchema.parse({ status: 'DONE' });
-      expect(result).toEqual({ status: 'DONE' });
+    it('should validate CLOSED state with COMPLETED reason', () => {
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'COMPLETED' });
+      expect(result).toEqual({ state: 'CLOSED', closeReason: 'COMPLETED' });
     });
 
-    it('should reject invalid status', () => {
+    it('should validate CLOSED state with NOT_PLANNED reason', () => {
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'NOT_PLANNED' });
+      expect(result).toEqual({ state: 'CLOSED', closeReason: 'NOT_PLANNED' });
+    });
+
+    it('should validate CLOSED state with DUPLICATE reason', () => {
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'DUPLICATE' });
+      expect(result).toEqual({ state: 'CLOSED', closeReason: 'DUPLICATE' });
+    });
+
+    it('should reject invalid state', () => {
       expect(() =>
-        updateIssueStatusSchema.parse({ status: 'INVALID' })
+        updateIssueStateSchema.parse({ state: 'INVALID' })
       ).toThrow(ZodError);
     });
 
-    it('should reject empty status', () => {
+    it('should reject empty state', () => {
       expect(() =>
-        updateIssueStatusSchema.parse({ status: '' })
+        updateIssueStateSchema.parse({ state: '' })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject OPEN state with closeReason', () => {
+      expect(() =>
+        updateIssueStateSchema.parse({ state: 'OPEN', closeReason: 'COMPLETED' })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject invalid closeReason', () => {
+      expect(() =>
+        updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'INVALID' })
       ).toThrow(ZodError);
     });
   });

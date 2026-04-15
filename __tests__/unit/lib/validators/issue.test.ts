@@ -1,4 +1,4 @@
-import { createIssueSchema, issueIdSchema, updateIssueStateSchema, updateIssueAssigneeSchema, batchUpdateIssuesSchema } from '@/lib/validators/issue';
+import { createIssueSchema, issueIdSchema, updateIssueStateSchema, updateIssueAssigneeSchema, batchUpdateIssuesSchema, issueFiltersSchema } from '@/lib/validators/issue';
 import { ZodError } from 'zod';
 
 describe('Issue Validators', () => {
@@ -300,6 +300,179 @@ describe('Issue Validators', () => {
       };
       const result = batchUpdateIssuesSchema.parse(data);
       expect(result).toEqual(data);
+    });
+  });
+
+  describe('issueFiltersSchema', () => {
+    const validData = {
+      projectId: '550e8400-e29b-41d4-a716-446655440000',
+      state: 'OPEN' as const,
+      assigneeId: '123e4567-e89b-12d3-a456-426614174000',
+      limit: 20,
+      offset: 0,
+      sortBy: 'createdAt' as const,
+      order: 'desc' as const,
+    };
+
+    it('should validate complete filter data', () => {
+      const result = issueFiltersSchema.parse(validData);
+      expect(result).toEqual(validData);
+    });
+
+    it('should apply default values for optional fields', () => {
+      const result = issueFiltersSchema.parse({});
+      expect(result).toEqual({
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt',
+        order: 'desc',
+      });
+    });
+
+    it('should validate projectId with valid UUID', () => {
+      const result = issueFiltersSchema.parse({
+        projectId: '550e8400-e29b-41d4-a716-446655440000',
+      });
+      expect(result.projectId).toBe('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    it('should reject invalid projectId format', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ projectId: 'not-a-uuid' })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate OPEN state', () => {
+      const result = issueFiltersSchema.parse({ state: 'OPEN' });
+      expect(result.state).toBe('OPEN');
+    });
+
+    it('should validate CLOSED state', () => {
+      const result = issueFiltersSchema.parse({ state: 'CLOSED' });
+      expect(result.state).toBe('CLOSED');
+    });
+
+    it('should reject invalid state', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ state: 'INVALID' })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate assigneeId with valid UUID', () => {
+      const result = issueFiltersSchema.parse({
+        assigneeId: '123e4567-e89b-12d3-a456-426614174000',
+      });
+      expect(result.assigneeId).toBe('123e4567-e89b-12d3-a456-426614174000');
+    });
+
+    it('should reject invalid assigneeId format', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ assigneeId: 'not-a-uuid' })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate limit within range (1-100)', () => {
+      const result = issueFiltersSchema.parse({ limit: 50 });
+      expect(result.limit).toBe(50);
+    });
+
+    it('should accept minimum limit of 1', () => {
+      const result = issueFiltersSchema.parse({ limit: 1 });
+      expect(result.limit).toBe(1);
+    });
+
+    it('should accept maximum limit of 100', () => {
+      const result = issueFiltersSchema.parse({ limit: 100 });
+      expect(result.limit).toBe(100);
+    });
+
+    it('should reject limit less than 1', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ limit: 0 })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject limit greater than 100', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ limit: 101 })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate offset as non-negative integer', () => {
+      const result = issueFiltersSchema.parse({ offset: 50 });
+      expect(result.offset).toBe(50);
+    });
+
+    it('should accept zero offset', () => {
+      const result = issueFiltersSchema.parse({ offset: 0 });
+      expect(result.offset).toBe(0);
+    });
+
+    it('should reject negative offset', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ offset: -1 })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate sortBy as createdAt', () => {
+      const result = issueFiltersSchema.parse({ sortBy: 'createdAt' });
+      expect(result.sortBy).toBe('createdAt');
+    });
+
+    it('should reject invalid sortBy value', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ sortBy: 'invalidField' })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate order as asc', () => {
+      const result = issueFiltersSchema.parse({ order: 'asc' });
+      expect(result.order).toBe('asc');
+    });
+
+    it('should validate order as desc', () => {
+      const result = issueFiltersSchema.parse({ order: 'desc' });
+      expect(result.order).toBe('desc');
+    });
+
+    it('should reject invalid order value', () => {
+      expect(() =>
+        issueFiltersSchema.parse({ order: 'invalid' })
+      ).toThrow(ZodError);
+    });
+
+    it('should coerce string limit to number', () => {
+      const result = issueFiltersSchema.parse({ limit: '25' });
+      expect(result.limit).toBe(25);
+    });
+
+    it('should coerce string offset to number', () => {
+      const result = issueFiltersSchema.parse({ offset: '10' });
+      expect(result.offset).toBe(10);
+    });
+
+    it('should validate multiple filters together', () => {
+      const result = issueFiltersSchema.parse({
+        projectId: '550e8400-e29b-41d4-a716-446655440000',
+        state: 'OPEN',
+        assigneeId: '123e4567-e89b-12d3-a456-426614174000',
+        limit: 10,
+        offset: 20,
+        sortBy: 'createdAt',
+        order: 'asc',
+      });
+      expect(result).toEqual({
+        projectId: '550e8400-e29b-41d4-a716-446655440000',
+        state: 'OPEN',
+        assigneeId: '123e4567-e89b-12d3-a456-426614174000',
+        limit: 10,
+        offset: 20,
+        sortBy: 'createdAt',
+        order: 'asc',
+      });
     });
   });
 });

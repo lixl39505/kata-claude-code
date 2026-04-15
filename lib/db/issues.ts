@@ -117,6 +117,7 @@ export function updateIssue(
 
 export interface IssueFilters {
   projectId?: string;
+  projectIds?: string[];
   status?: string;
   closeReason?: string;
   assigneeId?: string;
@@ -132,6 +133,11 @@ export function countIssuesWithFilters(
   if (filters.projectId) {
     conditions.push('project_id = ?');
     values.push(filters.projectId);
+  } else if (filters.projectIds && filters.projectIds.length > 0) {
+    // Use IN clause for multiple project IDs (permission filtering)
+    const placeholders = filters.projectIds.map(() => '?').join(',');
+    conditions.push(`project_id IN (${placeholders})`);
+    values.push(...filters.projectIds);
   }
 
   if (filters.status) {
@@ -159,7 +165,8 @@ export function countIssuesWithFilters(
 export function findIssuesWithFilters(
   db: Database.Database,
   filters: IssueFilters,
-  pagination: { offset: number; limit: number }
+  pagination: { offset: number; limit: number },
+  sorting: { sortBy: string; order: string }
 ): Issue[] {
   const conditions: string[] = [];
   const values: string[] = [];
@@ -167,6 +174,11 @@ export function findIssuesWithFilters(
   if (filters.projectId) {
     conditions.push('project_id = ?');
     values.push(filters.projectId);
+  } else if (filters.projectIds && filters.projectIds.length > 0) {
+    // Use IN clause for multiple project IDs (permission filtering)
+    const placeholders = filters.projectIds.map(() => '?').join(',');
+    conditions.push(`project_id IN (${placeholders})`);
+    values.push(...filters.projectIds);
   }
 
   if (filters.status) {
@@ -186,13 +198,21 @@ export function findIssuesWithFilters(
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+  // Map sortBy to actual column names
+  const sortColumnMap: Record<string, string> = {
+    createdAt: 'created_at',
+  };
+
+  const sortColumn = sortColumnMap[sorting.sortBy] || sorting.sortBy;
+  const orderClause = sorting.order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
   const stmt = db.prepare(`
     SELECT id, project_id as projectId, title, description, status, close_reason as closeReason,
            created_by_id as createdById, assignee_id as assigneeId,
            created_at as createdAt, updated_at as updatedAt
     FROM issues
     ${whereClause}
-    ORDER BY created_at DESC
+    ORDER BY ${sortColumn} ${orderClause}
     LIMIT ? OFFSET ?
   `);
 

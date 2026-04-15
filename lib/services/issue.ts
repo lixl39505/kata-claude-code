@@ -290,11 +290,9 @@ export interface IssueListResult {
   items: Issue[];
   total: number;
   pagination: {
-    currentPage: number;
-    totalPages: number;
     limit: number;
+    offset: number;
     hasNextPage: boolean;
-    hasPreviousPage: boolean;
   };
 }
 
@@ -304,10 +302,9 @@ export async function listIssuesWithFilters(
   const db = getDb();
   const user = await requireAuthenticatedUser();
 
-  // Calculate pagination parameters
-  const currentPage = filters.page;
+  // Get pagination parameters
   const limit = filters.limit;
-  const offset = (currentPage - 1) * limit;
+  const offset = filters.offset;
 
   // Get all projects where user is a member for permission filtering
   const { findProjectIdsByUserId } = await import('@/lib/db/project-members');
@@ -319,17 +316,16 @@ export async function listIssuesWithFilters(
       items: [],
       total: 0,
       pagination: {
-        currentPage,
-        totalPages: 0,
         limit,
+        offset,
         hasNextPage: false,
-        hasPreviousPage: false,
       },
     };
   }
 
   // Build filters with project permission constraint
-  const dbFilters: { projectId?: string; status?: string; assigneeId?: string } = {};
+  const dbFilters: { projectId?: string; status?: string; assigneeId?: string; projectIds?: string[] } = {};
+
   if (filters.projectId) {
     // If projectId filter is provided, verify user is a member of that project
     if (!userProjectIds.includes(filters.projectId)) {
@@ -338,15 +334,16 @@ export async function listIssuesWithFilters(
         items: [],
         total: 0,
         pagination: {
-          currentPage,
-          totalPages: 0,
           limit,
+          offset,
           hasNextPage: false,
-          hasPreviousPage: false,
         },
       };
     }
     dbFilters.projectId = filters.projectId;
+  } else {
+    // No projectId filter - restrict to user's projects for permission isolation
+    dbFilters.projectIds = userProjectIds;
   }
 
   if (filters.state) {
@@ -358,47 +355,23 @@ export async function listIssuesWithFilters(
   }
 
   // Get total count (before pagination)
-  let totalCount = 0;
-  if (!filters.projectId) {
-    // No projectId filter - we need to count across user's projects only
-    // For now, we'll get all issues and filter in application layer
-    const allIssues = findIssuesWithFilters(db, dbFilters, { offset: 0, limit: Number.MAX_SAFE_INTEGER });
-    const userIssues = allIssues.filter(issue => userProjectIds.includes(issue.projectId));
-    totalCount = userIssues.length;
+  const totalCount = countIssuesWithFilters(db, dbFilters);
 
-    // Get paginated results
-    const paginatedIssues = userIssues.slice(offset, offset + limit);
-    const totalPages = Math.ceil(totalCount / limit);
+  // Get paginated results with sorting
+  const issues = findIssuesWithFilters(db, dbFilters, { offset, limit }, {
+    sortBy: filters.sortBy,
+    order: filters.order,
+  });
 
-    return {
-      items: paginatedIssues,
-      total: totalCount,
-      pagination: {
-        currentPage,
-        totalPages,
-        limit,
-        hasNextPage: currentPage < totalPages,
-        hasPreviousPage: currentPage > 1,
-      },
-    };
-  } else {
-    // Has projectId filter - use direct database query
-    totalCount = countIssuesWithFilters(db, dbFilters);
-    const issues = findIssuesWithFilters(db, dbFilters, { offset, limit });
-    const totalPages = Math.ceil(totalCount / limit);
-
-    return {
-      items: issues,
-      total: totalCount,
-      pagination: {
-        currentPage,
-        totalPages,
-        limit,
-        hasNextPage: currentPage < totalPages,
-        hasPreviousPage: currentPage > 1,
-      },
-    };
-  }
+  return {
+    items: issues,
+    total: totalCount,
+    pagination: {
+      limit,
+      offset,
+      hasNextPage: offset + limit < totalCount,
+    },
+  };
 }
 
 /**

@@ -10,10 +10,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const filters = {
       projectId: searchParams.get('projectId') || undefined,
-      status: searchParams.get('status') as 'OPEN' | 'IN_PROGRESS' | 'DONE' | undefined,
+      state: searchParams.get('state') as 'OPEN' | 'CLOSED' | undefined,
       assigneeId: searchParams.get('assigneeId') || undefined,
-      page: searchParams.get('page') || undefined,
       limit: searchParams.get('limit') || undefined,
+      offset: searchParams.get('offset') || undefined,
+      sortBy: searchParams.get('sortBy') as 'createdAt' | undefined,
+      order: searchParams.get('order') as 'asc' | 'desc' | undefined,
     };
 
     // Validate filters

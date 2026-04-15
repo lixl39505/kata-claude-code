@@ -61,8 +61,10 @@ export const issueFiltersSchema = z.object({
   projectId: z.string().uuid('Invalid project ID').optional(),
   state: z.enum(['OPEN', 'CLOSED']).optional(),
   assigneeId: z.string().uuid('Invalid assignee ID').optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  sortBy: z.enum(['createdAt']).default('createdAt'),
+  order: z.enum(['asc', 'desc']).default('desc'),
 });
 
 export type IssueFiltersInput = z.infer<typeof issueFiltersSchema>;

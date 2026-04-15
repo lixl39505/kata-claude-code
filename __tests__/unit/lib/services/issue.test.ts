@@ -4,6 +4,7 @@ import {
   getIssueByIdForProject,
   updateIssueState,
   updateIssueAssignee,
+  listIssuesWithFilters,
 } from '@/lib/services/issue';
 import { getDb } from '@/lib/db';
 import { requireAuthenticatedUser } from '@/lib/services/auth';
@@ -30,6 +31,8 @@ jest.mock('@/lib/db/issues', () => ({
   findIssuesByProjectId: jest.fn(),
   findIssueById: jest.fn(),
   updateIssue: jest.fn(),
+  findIssuesWithFilters: jest.fn(),
+  countIssuesWithFilters: jest.fn(),
 }));
 
 jest.mock('@/lib/db/projects', () => ({
@@ -57,6 +60,8 @@ import {
   findIssuesByProjectId,
   findIssueById,
   updateIssue as updateIssueDb,
+  findIssuesWithFilters,
+  countIssuesWithFilters,
 } from '@/lib/db/issues';
 import { findProjectById } from '@/lib/db/projects';
 import { findUserById } from '@/lib/db/users';
@@ -67,6 +72,8 @@ const mockCreateIssueDb = createIssueDb as jest.MockedFunction<typeof createIssu
 const mockFindIssuesByProjectId = findIssuesByProjectId as jest.MockedFunction<typeof findIssuesByProjectId>;
 const mockFindIssueById = findIssueById as jest.MockedFunction<typeof findIssueById>;
 const mockUpdateIssueDb = updateIssueDb as jest.MockedFunction<typeof updateIssueDb>;
+const mockFindIssuesWithFilters = findIssuesWithFilters as jest.MockedFunction<typeof findIssuesWithFilters>;
+const mockCountIssuesWithFilters = countIssuesWithFilters as jest.MockedFunction<typeof countIssuesWithFilters>;
 const mockFindProjectById = findProjectById as jest.MockedFunction<typeof findProjectById>;
 const mockFindUserById = findUserById as jest.MockedFunction<typeof findUserById>;
 const mockCreateIssueAuditLog = createIssueAuditLog as jest.MockedFunction<typeof createIssueAuditLog>;
@@ -1156,6 +1163,421 @@ describe('Issue Service', () => {
       expect(result).toEqual(updatedIssue);
       expect(result.assigneeId).toBe('user-456');
       expect(result.updatedAt).toBe('2024-01-02T00:00:00.000Z');
+    });
+  });
+
+  describe('listIssuesWithFilters', () => {
+    const mockIssues = [
+      mockIssue,
+      {
+        ...mockIssue,
+        id: 'issue-456',
+        title: 'Second issue',
+        createdAt: '2024-01-02T00:00:00.000Z',
+      },
+      {
+        ...mockIssue,
+        id: 'issue-789',
+        title: 'Third issue',
+        createdAt: '2024-01-03T00:00:00.000Z',
+      },
+    ];
+
+    beforeEach(() => {
+      // Mock user having access to project-123
+      const { findProjectIdsByUserId } = require('@/lib/db/project-members');
+      findProjectIdsByUserId.mockReturnValue(['project-123']);
+    });
+
+    it('should return filtered issues with default pagination', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue(mockIssues);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(result.items).toEqual(mockIssues);
+      expect(result.total).toBe(3);
+      expect(result.pagination).toEqual({
+        limit: 20,
+        offset: 0,
+        hasNextPage: false,
+      });
+    });
+
+    it('should filter by projectId', async () => {
+      const filters = {
+        projectId: 'project-123',
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(2);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[0], mockIssues[1]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(mockCountIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          projectId: 'project-123',
+        })
+      );
+      expect(result.items).toHaveLength(2);
+    });
+
+    it('should filter by state', async () => {
+      const filters = {
+        projectId: undefined,
+        state: 'OPEN' as const,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(2);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[0], mockIssues[1]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(mockCountIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          status: 'OPEN',
+          projectIds: ['project-123'],
+        })
+      );
+      expect(result.items).toHaveLength(2);
+    });
+
+    it('should filter by assigneeId', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: 'user-456',
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(1);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[0]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(mockCountIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          assigneeId: 'user-456',
+        })
+      );
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('should apply multiple filters together', async () => {
+      const filters = {
+        projectId: 'project-123',
+        state: 'OPEN' as const,
+        assigneeId: 'user-456',
+        limit: 10,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(1);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[0]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(mockCountIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          projectId: 'project-123',
+          status: 'OPEN',
+          assigneeId: 'user-456',
+        })
+      );
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('should handle pagination correctly', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 2,
+        offset: 1,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[1], mockIssues[2]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(mockFindIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          projectIds: ['project-123'],
+        }),
+        { limit: 2, offset: 1 },
+        { sortBy: 'createdAt', order: 'desc' }
+      );
+      expect(result.items).toHaveLength(2);
+      expect(result.pagination.hasNextPage).toBe(false);
+    });
+
+    it('should calculate hasNextPage correctly', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 2,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[0], mockIssues[1]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(result.pagination.hasNextPage).toBe(true);
+    });
+
+    it('should handle sorting by createdAt ascending', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'asc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue(mockIssues);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(mockFindIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.anything(),
+        expect.anything(),
+        { sortBy: 'createdAt', order: 'asc' }
+      );
+      expect(result.items).toEqual(mockIssues);
+    });
+
+    it('should handle sorting by createdAt descending', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue([...mockIssues].reverse());
+
+      await listIssuesWithFilters(filters);
+
+      expect(mockFindIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.anything(),
+        expect.anything(),
+        { sortBy: 'createdAt', order: 'desc' }
+      );
+    });
+
+    it('should return empty result when user has no project access', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+
+      // Mock user having no projects
+      const { findProjectIdsByUserId } = require('@/lib/db/project-members');
+      findProjectIdsByUserId.mockReturnValue([]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.pagination.hasNextPage).toBe(false);
+    });
+
+    it('should return empty result when user requests inaccessible project', async () => {
+      const filters = {
+        projectId: 'other-project-456',
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+
+      // Mock user having access to project-123 only
+      const { findProjectIdsByUserId } = require('@/lib/db/project-members');
+      findProjectIdsByUserId.mockReturnValue(['project-123']);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.pagination.hasNextPage).toBe(false);
+    });
+
+    it('should restrict results to user accessible projects when no projectId filter', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(2);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[0], mockIssues[1]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(mockCountIssuesWithFilters).toHaveBeenCalledWith(
+        mockDb,
+        expect.objectContaining({
+          projectIds: ['project-123'],
+        })
+      );
+      expect(result.items).toHaveLength(2);
+    });
+
+    it('should throw UnauthenticatedError when user is not authenticated', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockRejectedValue(
+        new UnauthenticatedError()
+      );
+
+      await expect(listIssuesWithFilters(filters)).rejects.toThrow(
+        UnauthenticatedError
+      );
+    });
+
+    it('should handle edge case of offset exactly at total count', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 3,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue([]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(result.items).toEqual([]);
+      expect(result.pagination.hasNextPage).toBe(false);
+    });
+
+    it('should handle edge case of single item per page', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 1,
+        offset: 0,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue([mockIssues[0]]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.pagination.hasNextPage).toBe(true);
+    });
+
+    it('should handle large offset values', async () => {
+      const filters = {
+        projectId: undefined,
+        state: undefined,
+        assigneeId: undefined,
+        limit: 20,
+        offset: 1000,
+        sortBy: 'createdAt' as const,
+        order: 'desc' as const,
+      };
+
+      mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
+      mockCountIssuesWithFilters.mockReturnValue(3);
+      mockFindIssuesWithFilters.mockReturnValue([]);
+
+      const result = await listIssuesWithFilters(filters);
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(3);
+      expect(result.pagination.hasNextPage).toBe(false);
     });
   });
 });

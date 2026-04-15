@@ -17,10 +17,11 @@
 - Project 访问边界（成员可见 / 非成员不可访问）
 - Issue assignee 约束（必须是 Project 成员）
 - Issue 批量操作（状态 / 指派）
+- Issue 预设视图（My Issues / Open Issues / Closed Issues）
 
 ## 当前任务
 
-- Issue 批量操作（task-012-issue-batch-actions）- 已完成
+- Issue 预设视图（task-014-issue-preset-views）- 已完成
 
 ## 近期待办候选
 
@@ -56,4 +57,5 @@
 - 用户可以查看操作记录（审计日志）
 - 用户可以管理 Project 成员 ✅
 - 用户可以批量操作 Issue ✅
+- 用户可以使用预设视图查看 Issue ✅
 - 用户可以查看操作记录（审计日志）

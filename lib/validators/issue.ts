@@ -100,3 +100,49 @@ export const batchUpdateIssuesSchema = z
   );
 
 export type BatchUpdateIssuesInput = z.infer<typeof batchUpdateIssuesSchema>;
+
+// Preset Views Types
+export const PRESET_VIEW_KEYS = {
+  MY_ISSUES: 'MY_ISSUES',
+  OPEN_ISSUES: 'OPEN_ISSUES',
+  CLOSED_ISSUES: 'CLOSED_ISSUES',
+} as const;
+
+export type PresetViewKey = typeof PRESET_VIEW_KEYS[keyof typeof PRESET_VIEW_KEYS];
+
+export const presetViewKeySchema = z.enum([
+  PRESET_VIEW_KEYS.MY_ISSUES,
+  PRESET_VIEW_KEYS.OPEN_ISSUES,
+  PRESET_VIEW_KEYS.CLOSED_ISSUES,
+]);
+
+export type PresetViewKeyInput = z.infer<typeof presetViewKeySchema>;
+
+export const presetViewParamsSchema = z.object({
+  key: presetViewKeySchema,
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type PresetViewParamsInput = z.infer<typeof presetViewParamsSchema>;
+
+// Preset view definitions
+export const PRESET_VIEWS = {
+  MY_ISSUES: {
+    key: PRESET_VIEW_KEYS.MY_ISSUES,
+    name: 'My Issues',
+    description: 'Issues assigned to you',
+  },
+  OPEN_ISSUES: {
+    key: PRESET_VIEW_KEYS.OPEN_ISSUES,
+    name: 'Open Issues',
+    description: 'All open issues across your projects',
+  },
+  CLOSED_ISSUES: {
+    key: PRESET_VIEW_KEYS.CLOSED_ISSUES,
+    name: 'Closed Issues',
+    description: 'All closed issues across your projects',
+  },
+} as const;
+
+export type PresetViewDefinition = typeof PRESET_VIEWS[keyof typeof PRESET_VIEWS];

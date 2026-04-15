@@ -1,4 +1,4 @@
-import { createIssueSchema, issueIdSchema, updateIssueStateSchema, updateIssueAssigneeSchema, batchUpdateIssuesSchema, issueFiltersSchema } from '@/lib/validators/issue';
+import { createIssueSchema, issueIdSchema, updateIssueStateSchema, updateIssueAssigneeSchema, batchUpdateIssuesSchema, issueFiltersSchema, presetViewKeySchema, presetViewParamsSchema, PRESET_VIEWS, PRESET_VIEW_KEYS } from '@/lib/validators/issue';
 import { ZodError } from 'zod';
 
 describe('Issue Validators', () => {
@@ -473,6 +473,220 @@ describe('Issue Validators', () => {
         sortBy: 'createdAt',
         order: 'asc',
       });
+    });
+  });
+
+  describe('presetViewKeySchema', () => {
+    it('should validate MY_ISSUES key', () => {
+      const result = presetViewKeySchema.parse('MY_ISSUES');
+      expect(result).toBe('MY_ISSUES');
+    });
+
+    it('should validate OPEN_ISSUES key', () => {
+      const result = presetViewKeySchema.parse('OPEN_ISSUES');
+      expect(result).toBe('OPEN_ISSUES');
+    });
+
+    it('should validate CLOSED_ISSUES key', () => {
+      const result = presetViewKeySchema.parse('CLOSED_ISSUES');
+      expect(result).toBe('CLOSED_ISSUES');
+    });
+
+    it('should reject invalid view key', () => {
+      expect(() =>
+        presetViewKeySchema.parse('INVALID_KEY')
+      ).toThrow(ZodError);
+    });
+
+    it('should reject empty string', () => {
+      expect(() =>
+        presetViewKeySchema.parse('')
+      ).toThrow(ZodError);
+    });
+  });
+
+  describe('presetViewParamsSchema', () => {
+    const validData = {
+      key: 'MY_ISSUES' as const,
+      limit: 20,
+      offset: 0,
+    };
+
+    it('should validate complete preset view parameters', () => {
+      const result = presetViewParamsSchema.parse(validData);
+      expect(result).toEqual(validData);
+    });
+
+    it('should apply default values for optional fields', () => {
+      const result = presetViewParamsSchema.parse({ key: 'OPEN_ISSUES' });
+      expect(result).toEqual({
+        key: 'OPEN_ISSUES',
+        limit: 20,
+        offset: 0,
+      });
+    });
+
+    it('should validate MY_ISSUES view key', () => {
+      const result = presetViewParamsSchema.parse({ key: 'MY_ISSUES' });
+      expect(result.key).toBe('MY_ISSUES');
+    });
+
+    it('should validate OPEN_ISSUES view key', () => {
+      const result = presetViewParamsSchema.parse({ key: 'OPEN_ISSUES' });
+      expect(result.key).toBe('OPEN_ISSUES');
+    });
+
+    it('should validate CLOSED_ISSUES view key', () => {
+      const result = presetViewParamsSchema.parse({ key: 'CLOSED_ISSUES' });
+      expect(result.key).toBe('CLOSED_ISSUES');
+    });
+
+    it('should reject invalid view key', () => {
+      expect(() =>
+        presetViewParamsSchema.parse({ key: 'INVALID_KEY' })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate limit within range (1-100)', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'MY_ISSUES',
+        limit: 50,
+      });
+      expect(result.limit).toBe(50);
+    });
+
+    it('should accept minimum limit of 1', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'MY_ISSUES',
+        limit: 1,
+      });
+      expect(result.limit).toBe(1);
+    });
+
+    it('should accept maximum limit of 100', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'MY_ISSUES',
+        limit: 100,
+      });
+      expect(result.limit).toBe(100);
+    });
+
+    it('should reject limit less than 1', () => {
+      expect(() =>
+        presetViewParamsSchema.parse({
+          key: 'MY_ISSUES',
+          limit: 0,
+        })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject limit greater than 100', () => {
+      expect(() =>
+        presetViewParamsSchema.parse({
+          key: 'MY_ISSUES',
+          limit: 101,
+        })
+      ).toThrow(ZodError);
+    });
+
+    it('should validate offset as non-negative integer', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'MY_ISSUES',
+        offset: 50,
+      });
+      expect(result.offset).toBe(50);
+    });
+
+    it('should accept zero offset', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'MY_ISSUES',
+        offset: 0,
+      });
+      expect(result.offset).toBe(0);
+    });
+
+    it('should reject negative offset', () => {
+      expect(() =>
+        presetViewParamsSchema.parse({
+          key: 'MY_ISSUES',
+          offset: -1,
+        })
+      ).toThrow(ZodError);
+    });
+
+    it('should coerce string limit to number', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'MY_ISSUES',
+        limit: '25',
+      });
+      expect(result.limit).toBe(25);
+    });
+
+    it('should coerce string offset to number', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'MY_ISSUES',
+        offset: '10',
+      });
+      expect(result.offset).toBe(10);
+    });
+
+    it('should validate all parameters together', () => {
+      const result = presetViewParamsSchema.parse({
+        key: 'CLOSED_ISSUES',
+        limit: 10,
+        offset: 20,
+      });
+      expect(result).toEqual({
+        key: 'CLOSED_ISSUES',
+        limit: 10,
+        offset: 20,
+      });
+    });
+  });
+
+  describe('PRESET_VIEWS', () => {
+    it('should export all preset view definitions', () => {
+      expect(PRESET_VIEWS).toHaveProperty('MY_ISSUES');
+      expect(PRESET_VIEWS).toHaveProperty('OPEN_ISSUES');
+      expect(PRESET_VIEWS).toHaveProperty('CLOSED_ISSUES');
+    });
+
+    it('should have correct structure for MY_ISSUES view', () => {
+      expect(PRESET_VIEWS.MY_ISSUES).toEqual({
+        key: 'MY_ISSUES',
+        name: 'My Issues',
+        description: 'Issues assigned to you',
+      });
+    });
+
+    it('should have correct structure for OPEN_ISSUES view', () => {
+      expect(PRESET_VIEWS.OPEN_ISSUES).toEqual({
+        key: 'OPEN_ISSUES',
+        name: 'Open Issues',
+        description: 'All open issues across your projects',
+      });
+    });
+
+    it('should have correct structure for CLOSED_ISSUES view', () => {
+      expect(PRESET_VIEWS.CLOSED_ISSUES).toEqual({
+        key: 'CLOSED_ISSUES',
+        name: 'Closed Issues',
+        description: 'All closed issues across your projects',
+      });
+    });
+  });
+
+  describe('PRESET_VIEW_KEYS', () => {
+    it('should export all preset view keys', () => {
+      expect(PRESET_VIEW_KEYS).toHaveProperty('MY_ISSUES');
+      expect(PRESET_VIEW_KEYS).toHaveProperty('OPEN_ISSUES');
+      expect(PRESET_VIEW_KEYS).toHaveProperty('CLOSED_ISSUES');
+    });
+
+    it('should have correct key values', () => {
+      expect(PRESET_VIEW_KEYS.MY_ISSUES).toBe('MY_ISSUES');
+      expect(PRESET_VIEW_KEYS.OPEN_ISSUES).toBe('OPEN_ISSUES');
+      expect(PRESET_VIEW_KEYS.CLOSED_ISSUES).toBe('CLOSED_ISSUES');
     });
   });
 });

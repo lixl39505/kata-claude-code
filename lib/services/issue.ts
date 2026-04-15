@@ -13,7 +13,8 @@ import { isProjectMember as isProjectMemberDb } from '@/lib/db/project-members';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError } from '@/lib/errors/helpers';
-import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput, BatchUpdateIssuesInput } from '@/lib/validators/issue';
+import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition } from '@/lib/validators/issue';
+import { PRESET_VIEWS } from '@/lib/validators/issue';
 
 export interface Issue {
   id: string;
@@ -510,5 +511,62 @@ export async function batchUpdateIssues(data: BatchUpdateIssuesInput): Promise<{
   return {
     success: true,
     updatedCount,
+  };
+}
+
+/**
+ * Get all available preset view definitions
+ */
+export function getPresetViews(): PresetViewDefinition[] {
+  return Object.values(PRESET_VIEWS);
+}
+
+/**
+ * Get preset view results by key
+ */
+export async function getPresetViewResults(
+  params: PresetViewParamsInput
+): Promise<{
+  view: PresetViewDefinition;
+  items: Issue[];
+  total: number;
+}> {
+  const user = await requireAuthenticatedUser();
+
+  // Map preset view keys to their corresponding filters
+  const viewFiltersMap: Record<PresetViewKey, Omit<IssueFiltersInput, 'limit' | 'offset' | 'sortBy' | 'order'>> = {
+    MY_ISSUES: {
+      assigneeId: user.id, // Only issues assigned to current user
+    },
+    OPEN_ISSUES: {
+      state: 'OPEN', // Only open issues
+    },
+    CLOSED_ISSUES: {
+      state: 'CLOSED', // Only closed issues
+    },
+  };
+
+  // Get the filters for the requested view
+  const baseFilters = viewFiltersMap[params.key];
+
+  // Create full filter params with pagination
+  const filters: IssueFiltersInput = {
+    ...baseFilters,
+    limit: params.limit,
+    offset: params.offset,
+    sortBy: 'createdAt',
+    order: 'desc',
+  };
+
+  // Get view definition
+  const viewDefinition = PRESET_VIEWS[params.key];
+
+  // Reuse existing listIssuesWithFilters functionality
+  const result = await listIssuesWithFilters(filters);
+
+  return {
+    view: viewDefinition,
+    items: result.items,
+    total: result.total,
   };
 }

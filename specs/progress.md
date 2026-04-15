@@ -18,10 +18,11 @@
 - Issue assignee 约束（必须是 Project 成员）
 - Issue 批量操作（状态 / 指派）
 - Issue 预设视图（My Issues / Open Issues / Closed Issues）
+- Issue 关闭原因统计（按 closeReason 统计 CLOSED Issue 数量）
 
 ## 当前任务
 
-- Issue 预设视图（task-014-issue-preset-views）- 已完成
+- Issue 关闭原因统计（task-015-issue-close-reason-stats）- 已完成
 
 ## 近期待办候选
 

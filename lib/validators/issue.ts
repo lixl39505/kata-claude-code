@@ -126,6 +126,21 @@ export const presetViewParamsSchema = z.object({
 
 export type PresetViewParamsInput = z.infer<typeof presetViewParamsSchema>;
 
+// Close Reason Statistics Types
+export const closeReasonStatsSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID').optional(),
+});
+
+export type CloseReasonStatsInput = z.infer<typeof closeReasonStatsSchema>;
+
+export interface CloseReasonStatsResult {
+  items: Array<{
+    closeReason: 'COMPLETED' | 'NOT_PLANNED' | 'DUPLICATE';
+    count: number;
+  }>;
+  total: number;
+}
+
 // Preset view definitions
 export const PRESET_VIEWS = {
   MY_ISSUES: {

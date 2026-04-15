@@ -6,6 +6,7 @@ import {
   updateIssue,
   findIssuesWithFilters,
   countIssuesWithFilters,
+  getCloseReasonStats as getCloseReasonStatsDb,
 } from '@/lib/db/issues';
 import { findProjectById } from '@/lib/db/projects';
 import { findUserById } from '@/lib/db/users';
@@ -13,7 +14,7 @@ import { isProjectMember as isProjectMemberDb } from '@/lib/db/project-members';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError } from '@/lib/errors/helpers';
-import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition } from '@/lib/validators/issue';
+import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition, CloseReasonStatsInput, CloseReasonStatsResult } from '@/lib/validators/issue';
 import { PRESET_VIEWS } from '@/lib/validators/issue';
 
 export interface Issue {
@@ -569,4 +570,46 @@ export async function getPresetViewResults(
     items: result.items,
     total: result.total,
   };
+}
+
+/**
+ * Get close reason statistics for issues
+ * Supports both project-specific and global statistics
+ */
+export async function getCloseReasonStats(
+  filters: CloseReasonStatsInput
+): Promise<CloseReasonStatsResult> {
+  const db = getDb();
+  const user = await requireAuthenticatedUser();
+
+  // Build filters with project permission constraint
+  const dbFilters: { projectId?: string; projectIds?: string[] } = {};
+
+  if (filters.projectId) {
+    // If projectId filter is provided, verify user is a member of that project
+    if (!isProjectMemberDb(db, filters.projectId, user.id)) {
+      // User requested specific project they don't have access to - return empty
+      return {
+        items: [],
+        total: 0,
+      };
+    }
+    dbFilters.projectId = filters.projectId;
+  } else {
+    // No projectId filter - get statistics for all user's projects for permission isolation
+    const { findProjectIdsByUserId } = await import('@/lib/db/project-members');
+    const userProjectIds = findProjectIdsByUserId(db, user.id);
+
+    // If user has no projects, return empty result
+    if (userProjectIds.length === 0) {
+      return {
+        items: [],
+        total: 0,
+      };
+    }
+    dbFilters.projectIds = userProjectIds;
+  }
+
+  // Get close reason statistics from database
+  return getCloseReasonStatsDb(db, dbFilters);
 }

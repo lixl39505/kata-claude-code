@@ -218,3 +218,52 @@ export function findIssuesWithFilters(
 
   return stmt.all(...values, pagination.limit, pagination.offset) as Issue[];
 }
+
+export interface CloseReasonStats {
+  closeReason: 'COMPLETED' | 'NOT_PLANNED' | 'DUPLICATE';
+  count: number;
+}
+
+export interface CloseReasonStatsResult {
+  items: CloseReasonStats[];
+  total: number;
+}
+
+export function getCloseReasonStats(
+  db: Database.Database,
+  filters: { projectId?: string; projectIds?: string[] }
+): CloseReasonStatsResult {
+  const conditions: string[] = ['status = ?']; // Only count CLOSED issues
+  const values: string[] = ['CLOSED'];
+
+  if (filters.projectId) {
+    conditions.push('project_id = ?');
+    values.push(filters.projectId);
+  } else if (filters.projectIds && filters.projectIds.length > 0) {
+    // Use IN clause for multiple project IDs (permission filtering)
+    const placeholders = filters.projectIds.map(() => '?').join(',');
+    conditions.push(`project_id IN (${placeholders})`);
+    values.push(...filters.projectIds);
+  }
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+  // Get close reason statistics
+  const stmt = db.prepare(`
+    SELECT close_reason as closeReason, COUNT(*) as count
+    FROM issues
+    ${whereClause}
+    GROUP BY close_reason
+    ORDER BY count DESC
+  `);
+
+  const items = stmt.all(...values) as CloseReasonStats[];
+
+  // Calculate total count
+  const total = items.reduce((sum, item) => sum + item.count, 0);
+
+  return {
+    items,
+    total,
+  };
+}

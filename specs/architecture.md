@@ -110,6 +110,7 @@ flowchart TB
         ProjectAPI["Project API<br/>create / list / detail"]
         ProjectMemberAPI["Project Member API<br/>add / remove / list"]
         IssueAPI["Issue API<br/>create / list / detail / batch / views"]
+        IssueStatsAPI["Issue Stats API<br/>close reason stats"]
         StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]
@@ -119,7 +120,7 @@ flowchart TB
         AuthValidator["Auth Validators"]
         ProjectValidator["Project Validators"]
         ProjectMemberValidator["Project Member Validators"]
-        IssueValidator["Issue Validators<br/>(preset views)"]
+        IssueValidator["Issue Validators<br/>(preset views, stats)"]
         StateValidator["State Validators"]
         CommentValidator["Comment Validators"]
         AssigneeValidator["Assignee Validators"]
@@ -129,7 +130,7 @@ flowchart TB
         AuthService["Auth Service"]
         ProjectService["Project Service"]
         ProjectMemberService["Project Member Service"]
-        IssueService["Issue Service<br/>(preset views)"]
+        IssueService["Issue Service<br/>(preset views, stats)"]
         IssueStateService["Issue State Service"]
         CommentService["Comment Service"]
         AssigneeService["Assignee Service"]
@@ -162,6 +163,9 @@ flowchart TB
 
     IssueAPI --> IssueValidator
     IssueAPI --> IssueService
+
+    IssueStatsAPI --> IssueValidator
+    IssueStatsAPI --> IssueService
 
     StatusAPI --> StatusValidator
     StatusAPI --> IssueStatusService

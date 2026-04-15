@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 export { executeInTransaction, executeInTransactionAsync } from './transaction';
+export * from './project-members';
 
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'database.sqlite');
 

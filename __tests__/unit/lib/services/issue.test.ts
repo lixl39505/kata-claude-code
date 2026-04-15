@@ -11,6 +11,7 @@ import {
   UnauthenticatedError,
   NotFoundError,
   InvalidStateTransitionError,
+  ForbiddenError,
 } from '@/lib/errors/helpers';
 import type { CreateIssueInput, UpdateIssueStateInput, UpdateIssueAssigneeInput } from '@/lib/validators/issue';
 
@@ -43,6 +44,11 @@ jest.mock('@/lib/db/issue-audit-logs', () => ({
   createIssueAuditLog: jest.fn(),
 }));
 
+jest.mock('@/lib/db/project-members', () => ({
+  isProjectMember: jest.fn(() => true),
+  findProjectIdsByUserId: jest.fn(() => []),
+}));
+
 const mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
 const mockRequireAuthenticatedUser = requireAuthenticatedUser as jest.MockedFunction<typeof requireAuthenticatedUser>;
 
@@ -55,6 +61,7 @@ import {
 import { findProjectById } from '@/lib/db/projects';
 import { findUserById } from '@/lib/db/users';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
+import { isProjectMember } from '@/lib/db/project-members';
 
 const mockCreateIssueDb = createIssueDb as jest.MockedFunction<typeof createIssueDb>;
 const mockFindIssuesByProjectId = findIssuesByProjectId as jest.MockedFunction<typeof findIssuesByProjectId>;
@@ -63,6 +70,7 @@ const mockUpdateIssueDb = updateIssueDb as jest.MockedFunction<typeof updateIssu
 const mockFindProjectById = findProjectById as jest.MockedFunction<typeof findProjectById>;
 const mockFindUserById = findUserById as jest.MockedFunction<typeof findUserById>;
 const mockCreateIssueAuditLog = createIssueAuditLog as jest.MockedFunction<typeof createIssueAuditLog>;
+const mockIsProjectMember = isProjectMember as jest.MockedFunction<typeof isProjectMember>;
 
 describe('Issue Service', () => {
   const mockUser = {
@@ -110,6 +118,7 @@ describe('Issue Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetDb.mockReturnValue(mockDb);
+    mockIsProjectMember.mockReturnValue(true);
   });
 
   describe('createIssueInProject', () => {
@@ -179,9 +188,10 @@ describe('Issue Service', () => {
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
       mockFindProjectById.mockReturnValue(otherUsersProject);
+      mockIsProjectMember.mockReturnValue(false); // User is not a member
 
       await expect(createIssueInProject('project-123', input)).rejects.toThrow(
-        NotFoundError
+        ForbiddenError
       );
     });
 
@@ -261,9 +271,10 @@ describe('Issue Service', () => {
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
       mockFindProjectById.mockReturnValue(otherUsersProject);
+      mockIsProjectMember.mockReturnValue(false); // User is not a member
 
       await expect(listIssuesForProject('project-123')).rejects.toThrow(
-        NotFoundError
+        ForbiddenError
       );
     });
 
@@ -312,10 +323,11 @@ describe('Issue Service', () => {
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
       mockFindProjectById.mockReturnValue(otherUsersProject);
+      mockIsProjectMember.mockReturnValue(false); // User is not a member
 
       await expect(
         getIssueByIdForProject('project-123', 'issue-123')
-      ).rejects.toThrow(NotFoundError);
+      ).rejects.toThrow(ForbiddenError);
     });
 
     it('should throw NotFoundError when issue does not exist', async () => {
@@ -553,10 +565,11 @@ describe('Issue Service', () => {
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
       mockFindProjectById.mockReturnValue(otherUsersProject);
+      mockIsProjectMember.mockReturnValue(false); // User is not a member
 
       await expect(
         updateIssueState('project-123', 'issue-123', input)
-      ).rejects.toThrow(NotFoundError);
+      ).rejects.toThrow(ForbiddenError);
     });
 
     it('should throw NotFoundError when issue does not exist', async () => {
@@ -965,10 +978,11 @@ describe('Issue Service', () => {
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
       mockFindProjectById.mockReturnValue(otherUsersProject);
+      mockIsProjectMember.mockReturnValue(false); // User is not a member
 
       await expect(
         updateIssueAssignee('project-123', 'issue-123', input)
-      ).rejects.toThrow(NotFoundError);
+      ).rejects.toThrow(ForbiddenError);
     });
 
     it('should throw NotFoundError when issue does not exist', async () => {

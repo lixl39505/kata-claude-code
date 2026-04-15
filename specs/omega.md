@@ -63,3 +63,4 @@
 - [ ] ?? 主 agent 作为治理者(理解, 任务编排, 验证), 一个子 agent 负责开发, 一个子 agent 负责测试
 - [ ] 可以提炼一个术语表, 有助于精确描述(比如 Project, Issue)
 - [ ] cc 写的代码太多了, 需要另外一个 agent 来审核, 告诉我结果
+  - [ ] task 也需要审核, 与 requirement 和 architecture 对齐

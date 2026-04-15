@@ -11,12 +11,17 @@ import {
   UnauthenticatedError,
   NotFoundError,
   ConflictError,
+  ForbiddenError,
 } from '@/lib/errors/helpers';
 import type { CreateProjectInput } from '@/lib/validators/project';
 
 // Mock dependencies
 jest.mock('@/lib/db', () => ({
   getDb: jest.fn(),
+}));
+
+jest.mock('@/lib/db/transaction', () => ({
+  executeInTransactionAsync: jest.fn((db, callback) => callback(db)),
 }));
 
 jest.mock('@/lib/services/auth', () => ({
@@ -30,20 +35,27 @@ jest.mock('@/lib/db/projects', () => ({
   findProjectByOwnerAndKey: jest.fn(),
 }));
 
+jest.mock('@/lib/db/project-members', () => ({
+  addProjectMember: jest.fn(),
+  findProjectIdsByUserId: jest.fn(() => []),
+  isProjectMember: jest.fn(),
+}));
+
 const mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
 const mockRequireAuthenticatedUser = requireAuthenticatedUser as jest.MockedFunction<typeof requireAuthenticatedUser>;
 
 import {
   createProject as createProjectDb,
   findProjectById,
-  findProjectsByOwnerId,
   findProjectByOwnerAndKey,
 } from '@/lib/db/projects';
+import { findProjectIdsByUserId, isProjectMember } from '@/lib/db/project-members';
 
 const mockCreateProjectDb = createProjectDb as jest.MockedFunction<typeof createProjectDb>;
 const mockFindProjectById = findProjectById as jest.MockedFunction<typeof findProjectById>;
-const mockFindProjectsByOwnerId = findProjectsByOwnerId as jest.MockedFunction<typeof findProjectsByOwnerId>;
 const mockFindProjectByOwnerAndKey = findProjectByOwnerAndKey as jest.MockedFunction<typeof findProjectByOwnerAndKey>;
+const mockFindProjectIdsByUserId = findProjectIdsByUserId as jest.MockedFunction<typeof findProjectIdsByUserId>;
+const mockIsProjectMember = isProjectMember as jest.MockedFunction<typeof isProjectMember>;
 
 describe('Project Service', () => {
   const mockUser = {
@@ -69,6 +81,7 @@ describe('Project Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetDb.mockReturnValue(mockDb);
+    mockIsProjectMember.mockReturnValue(true); // Default: user is a member
   });
 
   describe('createProject', () => {
@@ -165,18 +178,19 @@ describe('Project Service', () => {
       ];
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
-      mockFindProjectsByOwnerId.mockReturnValue(mockProjects);
+      mockFindProjectIdsByUserId.mockReturnValue(['project-123', 'project-456']);
+      mockFindProjectById.mockReturnValueOnce(mockProject).mockReturnValueOnce(mockProjects[1]);
 
       const result = await listProjectsForCurrentUser();
 
       expect(mockRequireAuthenticatedUser).toHaveBeenCalled();
-      expect(mockFindProjectsByOwnerId).toHaveBeenCalledWith(mockDb, 'user-123');
-      expect(result).toEqual(mockProjects);
+      expect(mockFindProjectIdsByUserId).toHaveBeenCalledWith(mockDb, 'user-123');
+      expect(result).toHaveLength(2);
     });
 
     it('should return empty array when user has no projects', async () => {
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
-      mockFindProjectsByOwnerId.mockReturnValue([]);
+      mockFindProjectIdsByUserId.mockReturnValue([]);
 
       const result = await listProjectsForCurrentUser();
 
@@ -226,13 +240,11 @@ describe('Project Service', () => {
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
       mockFindProjectById.mockReturnValue(otherUsersProject);
+      mockIsProjectMember.mockReturnValue(false); // User is not a member
 
       await expect(
         getProjectByIdForCurrentUser('project-123')
-      ).rejects.toThrow(NotFoundError);
-      await expect(
-        getProjectByIdForCurrentUser('project-123')
-      ).rejects.toThrow('Project not found');
+      ).rejects.toThrow(ForbiddenError);
     });
 
     it('should throw UnauthenticatedError when user is not authenticated', async () => {

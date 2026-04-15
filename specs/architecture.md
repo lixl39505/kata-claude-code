@@ -108,6 +108,7 @@ flowchart TB
     subgraph Web["Web / API 层"]
         AuthAPI["Auth API<br/>register / login / logout / me"]
         ProjectAPI["Project API<br/>create / list / detail"]
+        ProjectMemberAPI["Project Member API<br/>add / remove / list"]
         IssueAPI["Issue API<br/>create / list / detail"]
         StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list"]
@@ -117,6 +118,7 @@ flowchart TB
     subgraph Validation["校验层"]
         AuthValidator["Auth Validators"]
         ProjectValidator["Project Validators"]
+        ProjectMemberValidator["Project Member Validators"]
         IssueValidator["Issue Validators"]
         StateValidator["State Validators"]
         CommentValidator["Comment Validators"]
@@ -126,6 +128,7 @@ flowchart TB
     subgraph Services["服务层"]
         AuthService["Auth Service"]
         ProjectService["Project Service"]
+        ProjectMemberService["Project Member Service"]
         IssueService["Issue Service"]
         IssueStateService["Issue State Service"]
         CommentService["Comment Service"]
@@ -142,6 +145,7 @@ flowchart TB
         Users[("users")]
         Sessions[("sessions / auth session")]
         Projects[("projects")]
+        ProjectMembers[("project_members")]
         Issues[("issues")]
         IssueComments[("issue_comments")]
         IssueAuditLogs[("issue_audit_logs")]
@@ -152,6 +156,9 @@ flowchart TB
 
     ProjectAPI --> ProjectValidator
     ProjectAPI --> ProjectService
+
+    ProjectMemberAPI --> ProjectMemberValidator
+    ProjectMemberAPI --> ProjectMemberService
 
     IssueAPI --> IssueValidator
     IssueAPI --> IssueService
@@ -170,26 +177,33 @@ flowchart TB
 
     ProjectService --> AuthModule
     ProjectService --> DBLayer
+    ProjectService --> ProjectMemberService
+
+    ProjectMemberService --> AuthModule
+    ProjectMemberService --> DBLayer
 
     IssueService --> AuthModule
     IssueService --> DBLayer
     IssueService --> AuditService
+    IssueService --> ProjectMemberService
 
-    IssueStatusService --> AuthModule
-    IssueStatusService --> DBLayer
-    IssueStatusService --> AuditService
+    IssueStateService --> AuthModule
+    IssueStateService --> DBLayer
+    IssueStateService --> AuditService
 
     CommentService --> AuthModule
     CommentService --> DBLayer
 
     AssigneeService --> AuthModule
     AssigneeService --> DBLayer
+    AssigneeService --> ProjectMemberService
 
     AuditService --> DBLayer
 
     DBLayer --> Users
     DBLayer --> Sessions
     DBLayer --> Projects
+    DBLayer --> ProjectMembers
     DBLayer --> Issues
     DBLayer --> IssueComments
     DBLayer --> IssueAuditLogs
@@ -202,6 +216,8 @@ flowchart TB
 - Admin
 - Member
 - Viewer
+- Project Owner（项目所有者）
+- Project Member（项目成员）
 
 规则：
 
@@ -210,6 +226,15 @@ flowchart TB
 - 最终权限校验必须在 services 层执行
 - 所有认证逻辑必须复用已有认证能力（位于 `./lib/service/auth）
 - 必须通过统一方法获取当前用户信息（如 `getCurrentUser`）. 禁止从 request 中手动解析用户信息
+
+项目访问控制：
+
+- Project 创建者自动成为 Project Owner
+- Project Owner 可添加/移除 Project Member
+- Project Owner 和 Project Member 可访问该 Project 下的所有资源
+- 非 Project 成员不可访问 Project 下的任何资源
+- Issue assignee 必须是该 Project 的 Member
+- Project 至少需要保留一名 Owner
 
 ## 并发控制
 
@@ -231,6 +256,8 @@ flowchart TB
 - 删除评论
 - 项目归档
 - 角色变更
+- 添加 Project 成员
+- 移除 Project 成员
 
 规则：
 

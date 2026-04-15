@@ -7,11 +7,12 @@ import {
   findIssuesWithFilters,
   countIssuesWithFilters,
 } from '@/lib/db/issues';
-import { findProjectById, findProjectsByOwnerId } from '@/lib/db/projects';
+import { findProjectById } from '@/lib/db/projects';
 import { findUserById } from '@/lib/db/users';
+import { isProjectMember as isProjectMemberDb } from '@/lib/db/project-members';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
-import { NotFoundError, InvalidStateTransitionError, InternalError } from '@/lib/errors/helpers';
+import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError } from '@/lib/errors/helpers';
 import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput } from '@/lib/validators/issue';
 
 export interface Issue {
@@ -36,10 +37,15 @@ export async function createIssueInProject(
   // Get current user
   const user = await requireAuthenticatedUser();
 
-  // Verify project exists and user owns it
+  // Verify project exists and user is a member
   const project = findProjectById(db, projectId);
-  if (!project || project.ownerId !== user.id) {
+  if (!project) {
     throw new NotFoundError('Project');
+  }
+
+  // Check if user is a project member
+  if (!isProjectMemberDb(db, projectId, user.id)) {
+    throw new ForbiddenError('You do not have access to this project');
   }
 
   // Use transaction to ensure atomicity of issue creation and audit logging
@@ -73,10 +79,15 @@ export async function listIssuesForProject(projectId: string): Promise<Issue[]> 
   // Get current user
   const user = await requireAuthenticatedUser();
 
-  // Verify project exists and user owns it
+  // Verify project exists and user is a member
   const project = findProjectById(db, projectId);
-  if (!project || project.ownerId !== user.id) {
+  if (!project) {
     throw new NotFoundError('Project');
+  }
+
+  // Check if user is a project member
+  if (!isProjectMemberDb(db, projectId, user.id)) {
+    throw new ForbiddenError('You do not have access to this project');
   }
 
   // List all issues for the project
@@ -94,10 +105,15 @@ export async function getIssueByIdForProject(
   // Get current user
   const user = await requireAuthenticatedUser();
 
-  // Verify project exists and user owns it
+  // Verify project exists and user is a member
   const project = findProjectById(db, projectId);
-  if (!project || project.ownerId !== user.id) {
+  if (!project) {
     throw new NotFoundError('Project');
+  }
+
+  // Check if user is a project member
+  if (!isProjectMemberDb(db, projectId, user.id)) {
+    throw new ForbiddenError('You do not have access to this project');
   }
 
   // Find issue by ID
@@ -144,10 +160,15 @@ export async function updateIssueState(
   const db = getDb();
   const user = await requireAuthenticatedUser();
 
-  // Verify project exists and user owns it
+  // Verify project exists and user is a member
   const project = findProjectById(db, projectId);
-  if (!project || project.ownerId !== user.id) {
+  if (!project) {
     throw new NotFoundError('Project');
+  }
+
+  // Check if user is a project member
+  if (!isProjectMemberDb(db, projectId, user.id)) {
+    throw new ForbiddenError('You do not have access to this project');
   }
 
   // Find current issue
@@ -204,10 +225,15 @@ export async function updateIssueAssignee(
   const db = getDb();
   const user = await requireAuthenticatedUser();
 
-  // Verify project exists and user owns it
+  // Verify project exists and user is a member
   const project = findProjectById(db, projectId);
-  if (!project || project.ownerId !== user.id) {
+  if (!project) {
     throw new NotFoundError('Project');
+  }
+
+  // Check if user is a project member
+  if (!isProjectMemberDb(db, projectId, user.id)) {
+    throw new ForbiddenError('You do not have access to this project');
   }
 
   // Find current issue
@@ -221,11 +247,16 @@ export async function updateIssueAssignee(
     throw new NotFoundError('Issue');
   }
 
-  // If setting an assignee, verify the user exists
+  // If setting an assignee, verify the user exists and is a project member
   if (data.assigneeId !== null) {
     const assignee = findUserById(db, data.assigneeId);
     if (!assignee) {
       throw new NotFoundError('Assignee');
+    }
+
+    // Check if assignee is a project member
+    if (!isProjectMemberDb(db, projectId, data.assigneeId)) {
+      throw new ForbiddenError('Assignee must be a member of this project');
     }
   }
 
@@ -278,9 +309,9 @@ export async function listIssuesWithFilters(
   const limit = filters.limit;
   const offset = (currentPage - 1) * limit;
 
-  // Get all projects owned by user for permission filtering
-  const userProjects = findProjectsByOwnerId(db, user.id);
-  const userProjectIds = userProjects.map(p => p.id);
+  // Get all projects where user is a member for permission filtering
+  const { findProjectIdsByUserId } = await import('@/lib/db/project-members');
+  const userProjectIds = findProjectIdsByUserId(db, user.id);
 
   // If user has no projects, return empty result
   if (userProjectIds.length === 0) {
@@ -300,9 +331,9 @@ export async function listIssuesWithFilters(
   // Build filters with project permission constraint
   const dbFilters: { projectId?: string; status?: string; assigneeId?: string } = {};
   if (filters.projectId) {
-    // If projectId filter is provided, verify user owns that project
+    // If projectId filter is provided, verify user is a member of that project
     if (!userProjectIds.includes(filters.projectId)) {
-      // User requested specific project they don't own - return empty
+      // User requested specific project they don't have access to - return empty
       return {
         items: [],
         total: 0,

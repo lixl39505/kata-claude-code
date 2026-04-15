@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-- Phase: Core Foundation
+- Phase: Collaboration（协作能力）
 
 ## 已完成能力
 
@@ -13,16 +13,19 @@
 - Issue 审计日志（创建 / 状态变更记录）
 - Issue 评论（创建 / 列表）
 - Issue 指派（assignee）
+- Project 成员管理（添加 / 移除 / 列表）
+- Project 访问边界（成员可见 / 非成员不可访问）
+- Issue assignee 约束（必须是 Project 成员）
 
 ## 当前任务
 
-- Issue 状态模型重构（task-010-issue-state-github-style）- 已完成
+- Project 成员管理（task-011-project-membership）- 已完成
 
 ## 近期待办候选
 
 - Issue 批量操作（状态 / 指派）
-- Project 成员管理（最小协作能力）
 - 通知基础（是否需要待定）
+- 评论 @ 提及（基础版）
 
 ## 当前决策
 
@@ -35,8 +38,8 @@
 
 ## 风险与待决问题
 
-- 是否需要多用户协作（成员系统）
-- 是否需要权限模型（RBAC 或简化版）
+- 是否需要多用户协作（成员系统）✅ 已实现
+- 是否需要权限模型（RBAC 或简化版）✅ 基础版本已实现
 - 是否需要通知系统
 
 ## 完成判断（MVP）
@@ -49,4 +52,6 @@
 - 用户可以评论 Issue
 - 用户可以指派 Issue
 - 用户可以筛选 Issue
+- 用户可以查看操作记录（审计日志）
+- 用户可以管理 Project 成员 ✅
 - 用户可以查看操作记录（审计日志）

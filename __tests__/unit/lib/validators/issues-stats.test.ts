@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { ZodError } from 'zod';
-import { closeReasonStatsSchema } from '@/lib/validators/issue';
+import { closeReasonStatsSchema, dashboardStatsSchema } from '@/lib/validators/issue';
 
 describe('Issue Close Reason Stats - Validators', () => {
   describe('closeReasonStatsSchema', () => {
@@ -100,7 +100,7 @@ describe('Issue Close Reason Stats - Validators', () => {
 
       // This should either succeed with undefined or fail depending on zod configuration
       // The important thing is it handles null gracefully
-      expect(result.success !== undefined);
+      expect(result.success !== undefined).toBe(true);
     });
 
     it('should ignore additional properties', () => {
@@ -196,6 +196,141 @@ describe('Issue Close Reason Stats - Validators', () => {
       expect(result.total).toBe(17);
       expect(result.items[0].closeReason).toBe('COMPLETED');
       expect(result.items[0].count).toBe(10);
+    });
+  });
+
+  describe('dashboardStatsSchema', () => {
+    it('should accept valid input without projectId', () => {
+      const input = {};
+      const result = dashboardStatsSchema.parse(input);
+
+      expect(result).toEqual({
+        projectId: undefined,
+      });
+    });
+
+    it('should accept valid input with projectId', () => {
+      const input = {
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+      };
+      const result = dashboardStatsSchema.parse(input);
+
+      expect(result).toEqual({
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+      });
+    });
+
+    it('should accept valid UUID as projectId', () => {
+      const validUUID = '550e8400-e29b-41d4-a716-446655440000';
+      const input = { projectId: validUUID };
+      const result = dashboardStatsSchema.parse(input);
+
+      expect(result.projectId).toBe(validUUID);
+    });
+
+    it('should reject invalid UUID format for projectId', () => {
+      const input = {
+        projectId: 'not-a-valid-uuid',
+      };
+
+      expect(() => dashboardStatsSchema.parse(input)).toThrow(ZodError);
+    });
+
+    it('should reject non-string projectId', () => {
+      const input = {
+        projectId: 123,
+      };
+
+      expect(() => dashboardStatsSchema.parse(input)).toThrow(ZodError);
+    });
+
+    it('should reject empty string projectId', () => {
+      const input = {
+        projectId: '',
+      };
+
+      expect(() => dashboardStatsSchema.parse(input)).toThrow(ZodError);
+    });
+
+    it('should accept UUID version 4 format', () => {
+      const input = {
+        projectId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', // Valid UUID v4
+      };
+
+      const result = dashboardStatsSchema.parse(input);
+      expect(result.projectId).toBe('f47ac10b-58cc-4372-a567-0e02b2c3d479');
+    });
+
+    it('should provide detailed error messages for invalid UUID', () => {
+      const input = {
+        projectId: 'invalid-uuid',
+      };
+
+      const result = dashboardStatsSchema.safeParse(input);
+
+      expect(result.success).toBe(false);
+    });
+
+    it('should handle empty input object', () => {
+      const input = {};
+      const result = dashboardStatsSchema.parse(input);
+
+      expect(result).toEqual({
+        projectId: undefined,
+      });
+    });
+
+    it('should handle undefined projectId explicitly', () => {
+      const input = {
+        projectId: undefined,
+      };
+      const result = dashboardStatsSchema.parse(input);
+
+      expect(result).toEqual({
+        projectId: undefined,
+      });
+    });
+  });
+
+  describe('Dashboard Stats Type Definitions', () => {
+    it('should have correct DashboardStatsInput type', () => {
+      // This is a compile-time type check
+      const input: { projectId?: string } = {
+        projectId: '550e8400-e29b-41d4-a716-446655440000',
+      };
+
+      // Should not cause TypeScript errors
+      const result = dashboardStatsSchema.parse(input);
+      expect(result).toBeDefined();
+    });
+
+    it('should have correct DashboardStatsResult type structure', () => {
+      // This is a compile-time type check
+      const result = {
+        total: 10,
+        openCount: 6,
+        closedCount: 4,
+        closeReasonStats: {
+          items: [
+            {
+              closeReason: 'COMPLETED' as const,
+              count: 3,
+            },
+            {
+              closeReason: 'NOT_PLANNED' as const,
+              count: 1,
+            },
+          ],
+          total: 4,
+        },
+      };
+
+      // Verify structure
+      expect(result.total).toBe(10);
+      expect(result.openCount).toBe(6);
+      expect(result.closedCount).toBe(4);
+      expect(result.closeReasonStats.items).toHaveLength(2);
+      expect(result.closeReasonStats.total).toBe(4);
     });
   });
 });

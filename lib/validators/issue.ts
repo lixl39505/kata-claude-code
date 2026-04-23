@@ -141,6 +141,20 @@ export interface CloseReasonStatsResult {
   total: number;
 }
 
+// Dashboard Statistics Types
+export const dashboardStatsSchema = z.object({
+  projectId: z.string().uuid('Invalid project ID').optional(),
+});
+
+export type DashboardStatsInput = z.infer<typeof dashboardStatsSchema>;
+
+export interface DashboardStatsResult {
+  total: number;
+  openCount: number;
+  closedCount: number;
+  closeReasonStats: CloseReasonStatsResult;
+}
+
 // Preset view definitions
 export const PRESET_VIEWS = {
   MY_ISSUES: {

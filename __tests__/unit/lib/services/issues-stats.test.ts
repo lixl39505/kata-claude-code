@@ -145,7 +145,7 @@ describe('Issue Close Reason Stats - Service Layer', () => {
       expect(result.total).toBe(10);
       expect(result.items).toHaveLength(3);
 
-      const closeReasons = result.items.map((item: any) => item.closeReason);
+      const closeReasons = result.items.map((item) => item.closeReason);
       expect(closeReasons).toContain('COMPLETED');
       expect(closeReasons).toContain('NOT_PLANNED');
       expect(closeReasons).toContain('DUPLICATE');

@@ -110,7 +110,7 @@ flowchart TB
         ProjectAPI["Project API<br/>create / list / detail"]
         ProjectMemberAPI["Project Member API<br/>add / remove / list"]
         IssueAPI["Issue API<br/>create / list / detail / batch / views"]
-        IssueStatsAPI["Issue Stats API<br/>close reason stats"]
+        IssueStatsAPI["Issue Stats API<br/>close reason stats / dashboard"]
         StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]

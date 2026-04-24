@@ -2,6 +2,7 @@
 import { GET } from '@/app/api/issues/views/[key]/route';
 import { getPresetViewResults } from '@/lib/services/issue';
 import type { NextRequest } from 'next/server';
+import { UnauthenticatedError, ForbiddenError } from '@/lib/errors/helpers';
 
 // Mock Next.js server dependencies
 const mockRequest = (url: string): NextRequest => ({
@@ -75,8 +76,8 @@ describe('Issue Views by Key API', () => {
       expect(data).toEqual(mockResult);
       expect(getPresetViewResults).toHaveBeenCalledWith({
         key: 'MY_ISSUES',
-        limit: undefined,
-        offset: undefined,
+        limit: 20,
+        offset: 0,
       });
     });
 
@@ -108,8 +109,8 @@ describe('Issue Views by Key API', () => {
       expect(data).toEqual(mockResult);
       expect(getPresetViewResults).toHaveBeenCalledWith({
         key: 'OPEN_ISSUES',
-        limit: '2',
-        offset: '0',
+        limit: 2,
+        offset: 0,
       });
     });
 
@@ -157,8 +158,7 @@ describe('Issue Views by Key API', () => {
     });
 
     it('should handle authentication errors', async () => {
-      const mockError = new Error('UNAUTHENTICATED') as Error & { code?: string };
-      mockError.code = 'UNAUTHENTICATED';
+      const mockError = new UnauthenticatedError();
       (getPresetViewResults as jest.Mock).mockRejectedValue(mockError);
 
       const request = mockRequest(
@@ -174,8 +174,7 @@ describe('Issue Views by Key API', () => {
     });
 
     it('should handle permission errors', async () => {
-      const mockError = new Error('FORBIDDEN') as Error & { code?: string };
-      mockError.code = 'FORBIDDEN';
+      const mockError = new ForbiddenError();
       (getPresetViewResults as jest.Mock).mockRejectedValue(mockError);
 
       const request = mockRequest(
@@ -218,8 +217,8 @@ describe('Issue Views by Key API', () => {
       expect(data).toEqual(mockResult);
       expect(getPresetViewResults).toHaveBeenCalledWith({
         key: 'CLOSED_ISSUES',
-        limit: undefined,
-        offset: undefined,
+        limit: 20,
+        offset: 0,
       });
     });
   });

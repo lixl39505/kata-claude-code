@@ -1,7 +1,6 @@
-import {
-  getPresetViews,
-  getPresetViewResults,
-} from '@/lib/services/issue';
+// Import modules first before mocking
+import { countIssuesWithFilters, findIssuesWithFilters } from '@/lib/db/issues';
+import { getPresetViews, getPresetViewResults } from '@/lib/services/issue';
 import { requireAuthenticatedUser } from '@/lib/services/auth';
 import { PRESET_VIEWS, PRESET_VIEW_KEYS } from '@/lib/validators/issue';
 
@@ -16,21 +15,22 @@ jest.mock('@/lib/db', () => ({
 }));
 
 jest.mock('@/lib/db/project-members', () => ({
-  findProjectIdsByUserId: jest.fn(() => []),
+  findProjectIdsByUserId: jest.fn(() => ['project-1', 'project-2']),
 }));
 
-// Mock the issue module to override the listIssuesWithFilters function
-jest.mock('@/lib/services/issue', () => {
-  const actualModule = jest.requireActual('@/lib/services/issue');
-  return {
-    ...actualModule,
-    listIssuesWithFilters: jest.fn(),
-  };
-});
+jest.mock('@/lib/db/issues', () => ({
+  countIssuesWithFilters: jest.fn(() => 0),
+  findIssuesWithFilters: jest.fn(() => []),
+  createIssue: jest.fn(),
+  findIssuesByProjectId: jest.fn(),
+  findIssueById: jest.fn(),
+  updateIssue: jest.fn(),
+  getCloseReasonStats: jest.fn(),
+}));
 
-import { listIssuesWithFilters } from '@/lib/services/issue';
-
-const mockedListIssuesWithFilters = listIssuesWithFilters as jest.MockedFunction<typeof listIssuesWithFilters>;
+// Create typed mocks
+const mockedCountIssuesWithFilters = countIssuesWithFilters as jest.MockedFunction<typeof countIssuesWithFilters>;
+const mockedFindIssuesWithFilters = findIssuesWithFilters as jest.MockedFunction<typeof findIssuesWithFilters>;
 
 describe('Issue Preset Views', () => {
   const createMockIssue = (overrides: Partial<{ id: string; title: string; status: string; assigneeId: string | null }>) => ({
@@ -80,6 +80,9 @@ describe('Issue Preset Views', () => {
 
     beforeEach(() => {
       (requireAuthenticatedUser as jest.Mock).mockResolvedValue(mockUser);
+      // Reset mocks to default empty values
+      mockedCountIssuesWithFilters.mockReturnValue(0);
+      mockedFindIssuesWithFilters.mockReturnValue([]);
     });
 
     it('should return My Issues view with correct filters', async () => {
@@ -110,15 +113,9 @@ describe('Issue Preset Views', () => {
         },
       ];
 
-      mockedListIssuesWithFilters.mockResolvedValue({
-        items: mockIssues,
-        total: 2,
-        pagination: {
-          limit: 20,
-          offset: 0,
-          hasNextPage: false,
-        },
-      });
+      // Mock the underlying DB functions
+      mockedCountIssuesWithFilters.mockReturnValue(2);
+      mockedFindIssuesWithFilters.mockReturnValue(mockIssues);
 
       const result = await getPresetViewResults({
         key: PRESET_VIEW_KEYS.MY_ISSUES,
@@ -129,12 +126,14 @@ describe('Issue Preset Views', () => {
       expect(result.view).toEqual(PRESET_VIEWS.MY_ISSUES);
       expect(result.items).toEqual(mockIssues);
       expect(result.total).toBe(2);
-      expect(mockedListIssuesWithFilters).toHaveBeenCalledWith(
+      expect(mockedFindIssuesWithFilters).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
           assigneeId: mockUser.id,
-          limit: 20,
-          offset: 0,
-        })
+          projectIds: ['project-1', 'project-2'],
+        }),
+        { limit: 20, offset: 0 },
+        { sortBy: 'createdAt', order: 'desc' }
       );
     });
 
@@ -166,15 +165,9 @@ describe('Issue Preset Views', () => {
         },
       ];
 
-      mockedListIssuesWithFilters.mockResolvedValue({
-        items: mockIssues,
-        total: 2,
-        pagination: {
-          limit: 20,
-          offset: 0,
-          hasNextPage: false,
-        },
-      });
+      // Mock the underlying DB functions
+      mockedCountIssuesWithFilters.mockReturnValue(2);
+      mockedFindIssuesWithFilters.mockReturnValue(mockIssues);
 
       const result = await getPresetViewResults({
         key: PRESET_VIEW_KEYS.OPEN_ISSUES,
@@ -185,12 +178,14 @@ describe('Issue Preset Views', () => {
       expect(result.view).toEqual(PRESET_VIEWS.OPEN_ISSUES);
       expect(result.items).toEqual(mockIssues);
       expect(result.total).toBe(2);
-      expect(mockedListIssuesWithFilters).toHaveBeenCalledWith(
+      expect(mockedFindIssuesWithFilters).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
-          state: 'OPEN',
-          limit: 20,
-          offset: 0,
-        })
+          status: 'OPEN',
+          projectIds: ['project-1', 'project-2'],
+        }),
+        { limit: 20, offset: 0 },
+        { sortBy: 'createdAt', order: 'desc' }
       );
     });
 
@@ -200,15 +195,9 @@ describe('Issue Preset Views', () => {
         createMockIssue({ id: 'issue-2', title: 'Closed Issue 2', status: 'CLOSED' }),
       ];
 
-      mockedListIssuesWithFilters.mockResolvedValue({
-        items: mockIssues,
-        total: 2,
-        pagination: {
-          limit: 20,
-          offset: 0,
-          hasNextPage: false,
-        },
-      });
+      // Mock the underlying DB functions
+      mockedCountIssuesWithFilters.mockReturnValue(2);
+      mockedFindIssuesWithFilters.mockReturnValue(mockIssues);
 
       const result = await getPresetViewResults({
         key: PRESET_VIEW_KEYS.CLOSED_ISSUES,
@@ -219,12 +208,14 @@ describe('Issue Preset Views', () => {
       expect(result.view).toEqual(PRESET_VIEWS.CLOSED_ISSUES);
       expect(result.items).toEqual(mockIssues);
       expect(result.total).toBe(2);
-      expect(mockedListIssuesWithFilters).toHaveBeenCalledWith(
+      expect(mockedFindIssuesWithFilters).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
-          state: 'CLOSED',
-          limit: 20,
-          offset: 0,
-        })
+          status: 'CLOSED',
+          projectIds: ['project-1', 'project-2'],
+        }),
+        { limit: 20, offset: 0 },
+        { sortBy: 'createdAt', order: 'desc' }
       );
     });
 
@@ -236,15 +227,9 @@ describe('Issue Preset Views', () => {
         })
       );
 
-      mockedListIssuesWithFilters.mockResolvedValue({
-        items: mockIssues,
-        total: 30,
-        pagination: {
-          limit: 10,
-          offset: 20,
-          hasNextPage: true,
-        },
-      });
+      // Mock the underlying DB functions
+      mockedCountIssuesWithFilters.mockReturnValue(30);
+      mockedFindIssuesWithFilters.mockReturnValue(mockIssues);
 
       const result = await getPresetViewResults({
         key: PRESET_VIEW_KEYS.OPEN_ISSUES,
@@ -254,11 +239,14 @@ describe('Issue Preset Views', () => {
 
       expect(result.total).toBe(30);
       expect(result.items).toHaveLength(10);
-      expect(mockedListIssuesWithFilters).toHaveBeenCalledWith(
+      expect(mockedFindIssuesWithFilters).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
-          limit: 10,
-          offset: 20,
-        })
+          status: 'OPEN',
+          projectIds: ['project-1', 'project-2'],
+        }),
+        { limit: 10, offset: 20 },
+        { sortBy: 'createdAt', order: 'desc' }
       );
     });
 
@@ -283,15 +271,9 @@ describe('Issue Preset Views', () => {
         createMockIssue({ id: 'issue-1', title: 'Issue 1', status: 'OPEN' }),
       ];
 
-      mockedListIssuesWithFilters.mockResolvedValue({
-        items: mockIssues,
-        total: 1,
-        pagination: {
-          limit: 20,
-          offset: 0,
-          hasNextPage: false,
-        },
-      });
+      // Mock the underlying DB functions
+      mockedCountIssuesWithFilters.mockReturnValue(1);
+      mockedFindIssuesWithFilters.mockReturnValue(mockIssues);
 
       await getPresetViewResults({
         key: PRESET_VIEW_KEYS.OPEN_ISSUES,
@@ -299,11 +281,14 @@ describe('Issue Preset Views', () => {
         offset: 0,
       });
 
-      expect(mockedListIssuesWithFilters).toHaveBeenCalledWith(
+      expect(mockedFindIssuesWithFilters).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
-          sortBy: 'createdAt',
-          order: 'desc',
-        })
+          status: 'OPEN',
+          projectIds: ['project-1', 'project-2'],
+        }),
+        { limit: 20, offset: 0 },
+        { sortBy: 'createdAt', order: 'desc' }
       );
     });
 
@@ -312,15 +297,9 @@ describe('Issue Preset Views', () => {
         createMockIssue({ id: 'issue-1', title: 'Issue 1', status: 'OPEN' }),
       ];
 
-      mockedListIssuesWithFilters.mockResolvedValue({
-        items: mockIssues,
-        total: 1,
-        pagination: {
-          limit: 20,
-          offset: 0,
-          hasNextPage: false,
-        },
-      });
+      // Mock the underlying DB functions
+      mockedCountIssuesWithFilters.mockReturnValue(1);
+      mockedFindIssuesWithFilters.mockReturnValue(mockIssues);
 
       await getPresetViewResults({
         key: PRESET_VIEW_KEYS.OPEN_ISSUES,
@@ -329,7 +308,7 @@ describe('Issue Preset Views', () => {
       });
 
       // The underlying service should handle permission filtering
-      expect(mockedListIssuesWithFilters).toHaveBeenCalled();
+      expect(mockedFindIssuesWithFilters).toHaveBeenCalled();
     });
   });
 });

@@ -114,6 +114,7 @@ flowchart TB
         StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list with mentions"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]
+        NotificationAPI["Notification API<br/>list / mark read"]
     end
 
     subgraph Validation["校验层"]
@@ -126,6 +127,7 @@ flowchart TB
         CommentMentionParser["Comment Mention Parser<br/>parse @ from content"]
         CommentMentionValidator["Comment Mention Validator<br/>validate project members"]
         AssigneeValidator["Assignee Validators"]
+        NotificationValidator["Notification Validators"]
     end
 
     subgraph Services["服务层"]
@@ -136,6 +138,7 @@ flowchart TB
         IssueStateService["Issue State Service"]
         CommentService["Comment Service<br/>with mentions support"]
         AssigneeService["Assignee Service"]
+        NotificationService["Notification Service"]
         AuditService["Audit Service"]
     end
 
@@ -153,6 +156,7 @@ flowchart TB
         IssueComments[("issue_comments")]
         IssueCommentMentions[("issue_comment_mentions")]
         IssueAuditLogs[("issue_audit_logs")]
+        Notifications[("notifications")]
     end
 
     AuthAPI --> AuthValidator
@@ -178,6 +182,9 @@ flowchart TB
 
     AssigneeAPI --> AssigneeValidator
     AssigneeAPI --> AssigneeService
+
+    NotificationAPI --> NotificationValidator
+    NotificationAPI --> NotificationService
 
     AuthService --> AuthModule
     AuthService --> DBLayer
@@ -205,6 +212,11 @@ flowchart TB
     AssigneeService --> DBLayer
     AssigneeService --> ProjectMemberService
 
+    NotificationService --> AuthModule
+    NotificationService --> DBLayer
+    CommentService --> NotificationService
+    AssigneeService --> NotificationService
+
     AuditService --> DBLayer
 
     DBLayer --> Users
@@ -214,6 +226,7 @@ flowchart TB
     DBLayer --> Issues
     DBLayer --> IssueComments
     DBLayer --> IssueAuditLogs
+    DBLayer --> Notifications
 ```
 
 ## 权限模型
@@ -334,3 +347,10 @@ details?: object
 
 ### AuditLog (审计日志)
 - 记录关键操作行为
+
+### Notification (通知)
+- id, userId, type, issueId, commentId, projectId, isRead, createdAt
+- 用户通知（提及、指派变更）
+- 约束: userId 必须存在，type 为 MENTION 或 ASSIGNEE_CHANGED
+- 级联删除: 用户/Issue/评论删除时自动删除通知
+

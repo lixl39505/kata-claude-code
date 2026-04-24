@@ -50,10 +50,15 @@ jest.mock('@/lib/services/comment-mention-validator', () => ({
   validateAndResolveMentions: jest.fn(),
 }));
 
+jest.mock('@/lib/services/notification', () => ({
+  createMentionNotifications: jest.fn(),
+}));
+
 import { getDb } from '@/lib/db';
 import { executeInTransactionAsync } from '@/lib/db/transaction';
 import { parseMentions } from '@/lib/services/comment-mention-parser';
 import { validateAndResolveMentions } from '@/lib/services/comment-mention-validator';
+import { createMentionNotifications } from '@/lib/services/notification';
 
 // Type the mocks
 const mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
@@ -72,6 +77,7 @@ const mockFindProjectById = findProjectById as jest.MockedFunction<typeof findPr
 const mockFindIssueById = findIssueById as jest.MockedFunction<typeof findIssueById>;
 const mockParseMentions = parseMentions as jest.MockedFunction<typeof parseMentions>;
 const mockValidateAndResolveMentions = validateAndResolveMentions as jest.MockedFunction<typeof validateAndResolveMentions>;
+const mockCreateMentionNotifications = createMentionNotifications as jest.MockedFunction<typeof createMentionNotifications>;
 
 describe('Issue Comment Service', () => {
   const mockDb = {
@@ -129,6 +135,7 @@ describe('Issue Comment Service', () => {
     mockParseMentions.mockReturnValue([]);
     mockValidateAndResolveMentions.mockReturnValue([]);
     mockFindMentionsByCommentId.mockReturnValue([]);
+    mockCreateMentionNotifications.mockReturnValue([]);
   });
 
   describe('createCommentInIssue', () => {

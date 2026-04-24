@@ -11,6 +11,7 @@ import { NotFoundError } from '@/lib/errors/helpers';
 import { parseMentions } from './comment-mention-parser';
 import { validateAndResolveMentions } from './comment-mention-validator';
 import { executeInTransactionAsync } from '@/lib/db/transaction';
+import { createMentionNotifications } from './notification';
 import type { CreateCommentInput } from '@/lib/validators/issue-comment';
 
 export interface IssueComment {
@@ -99,6 +100,10 @@ export async function createCommentInIssue(
       }));
 
       createCommentMentions(transactionDb, mentionData);
+
+      // Create notifications for mentioned users
+      const mentionedUserIds = mentionedUsers.map((u) => u.userId);
+      createMentionNotifications(mentionedUserIds, issueId, comment.id, projectId);
     }
 
     return comment;

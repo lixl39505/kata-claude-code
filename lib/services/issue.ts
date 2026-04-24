@@ -13,6 +13,7 @@ import { findUserById } from '@/lib/db/users';
 import { isProjectMember as isProjectMemberDb } from '@/lib/db/project-members';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
+import { createAssigneeChangedNotification } from './notification';
 import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError } from '@/lib/errors/helpers';
 import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition, CloseReasonStatsInput, CloseReasonStatsResult, DashboardStatsInput, DashboardStatsResult } from '@/lib/validators/issue';
 import { PRESET_VIEWS } from '@/lib/validators/issue';
@@ -283,6 +284,12 @@ export async function updateIssueAssignee(
       fromAssigneeId: currentIssue.assigneeId,
       toAssigneeId: data.assigneeId,
     });
+
+    // Create notification for the new assignee if assignee actually changed
+    // Only notify when assignee is different from current assignee
+    if (data.assigneeId !== null && data.assigneeId !== currentIssue.assigneeId) {
+      createAssigneeChangedNotification(data.assigneeId, issueId, projectId);
+    }
 
     return updatedIssue;
   });

@@ -21,15 +21,15 @@
 - Issue 预设视图（My Issues / Open Issues / Closed Issues）
 - Issue 关闭原因统计（按 closeReason 统计 CLOSED Issue 数量）
 - Issue Dashboard 统计（总数 / 状态分布 / 关闭原因统计）
+- 基础通知能力（mention / assignee 变更通知 / 已读标记）
 
 ## 当前任务
 
-- Issue Dashboard 统计（task-016-issue-dashboard）- 已完成
-- Issue 评论 @ 提及（task-017-comment-mentions）- 已完成
+- 基础通知能力（task-018-notifications）- 已完成
+- 基础通知能力（task-018-notifications）- 已完成
 
 ## 近期待办候选
 
-- 通知基础（是否需要待定）
 - Issue 批量删除（是否需要待定）
 
 ## 当前决策

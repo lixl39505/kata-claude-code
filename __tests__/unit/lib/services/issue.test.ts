@@ -52,6 +52,10 @@ jest.mock('@/lib/db/project-members', () => ({
   findProjectIdsByUserId: jest.fn(() => []),
 }));
 
+jest.mock('@/lib/db/notifications', () => ({
+  createNotifications: jest.fn(() => []),
+}));
+
 const mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
 const mockRequireAuthenticatedUser = requireAuthenticatedUser as jest.MockedFunction<typeof requireAuthenticatedUser>;
 

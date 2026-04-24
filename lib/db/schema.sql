@@ -111,3 +111,28 @@ CREATE TABLE IF NOT EXISTS issue_comments (
 CREATE INDEX IF NOT EXISTS idx_issue_comments_issue_id ON issue_comments(issue_id);
 CREATE INDEX IF NOT EXISTS idx_issue_comments_project_id ON issue_comments(project_id);
 CREATE INDEX IF NOT EXISTS idx_issue_comments_created_at ON issue_comments(created_at);
+
+-- Notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  issue_id TEXT NOT NULL,
+  comment_id TEXT,
+  project_id TEXT NOT NULL,
+  is_read INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE,
+  FOREIGN KEY (comment_id) REFERENCES issue_comments(id) ON DELETE CASCADE,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  CHECK (type IN ('MENTION', 'ASSIGNEE_CHANGED')),
+  CHECK (is_read IN (0, 1))
+);
+
+-- Indexes for efficient notification queries
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id_is_read ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_issue_id ON notifications(issue_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_project_id ON notifications(project_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);

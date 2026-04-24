@@ -17,3 +17,9 @@ export const markNotificationAsReadSchema = z.object({
 });
 
 export type MarkNotificationAsReadInput = z.infer<typeof markNotificationAsReadSchema>;
+
+export const markNotificationsAsReadSchema = z.object({
+  ids: z.array(z.string().min(1, 'Notification ID cannot be empty')).optional(),
+});
+
+export type MarkNotificationsAsReadInput = z.infer<typeof markNotificationsAsReadSchema>;

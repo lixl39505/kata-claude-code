@@ -4,6 +4,8 @@ import {
   countNotificationsWithFilters,
   findNotificationById,
   markNotificationAsRead as markNotificationAsReadDb,
+  markAllNotificationsAsRead,
+  markNotificationsAsReadByIds,
   type NotificationType,
   type NotificationData,
 } from '@/lib/db/notifications';
@@ -33,6 +35,27 @@ export interface NotificationWithDetails extends Notification {
 export interface NotificationListResult {
   items: NotificationWithDetails[];
   total: number;
+}
+
+/**
+ * Get the count of unread notifications for the current user.
+ *
+ * @returns The count of unread notifications
+ * @throws {UnauthenticatedError} If user is not authenticated
+ */
+export async function getUnreadCount(): Promise<number> {
+  const db = getDb();
+
+  // Get current user
+  const user = await requireAuthenticatedUser();
+
+  // Count unread notifications for current user only (security isolation)
+  const count = countNotificationsWithFilters(db, {
+    userId: user.id,
+    isRead: false,
+  });
+
+  return count;
 }
 
 /**
@@ -105,6 +128,31 @@ export async function markNotificationAsRead(
   }
 
   return updated;
+}
+
+/**
+ * Mark multiple notifications as read.
+ * If no IDs provided, marks all unread notifications as read.
+ *
+ * @param notificationIds - Optional array of notification IDs to mark as read
+ * @returns The number of notifications marked as read
+ * @throws {UnauthenticatedError} If user is not authenticated
+ */
+export async function markNotificationsAsRead(
+  notificationIds?: string[]
+): Promise<number> {
+  const db = getDb();
+
+  // Get current user
+  const user = await requireAuthenticatedUser();
+
+  // If no IDs provided, mark all as read
+  if (!notificationIds || notificationIds.length === 0) {
+    return markAllNotificationsAsRead(db, user.id);
+  }
+
+  // Mark specific notifications as read (security: only user's own notifications)
+  return markNotificationsAsReadByIds(db, user.id, notificationIds);
 }
 
 /**

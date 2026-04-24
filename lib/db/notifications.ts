@@ -354,3 +354,35 @@ export function deleteNotificationsByUserId(
   const result = stmt.run(userId);
   return result.changes;
 }
+
+/**
+ * Mark multiple notifications as read by their IDs.
+ * Only marks notifications that belong to the specified user.
+ *
+ * @param db - The database instance
+ * @param userId - The ID of the user (for security isolation)
+ * @param notificationIds - Array of notification IDs to mark as read
+ * @returns The number of notifications marked as read
+ */
+export function markNotificationsAsReadByIds(
+  db: Database.Database,
+  userId: string,
+  notificationIds: string[]
+): number {
+  if (notificationIds.length === 0) {
+    return 0;
+  }
+
+  // Build placeholders for IN clause
+  const placeholders = notificationIds.map(() => '?').join(',');
+  const params = [userId, ...notificationIds];
+
+  const stmt = db.prepare(`
+    UPDATE notifications
+    SET is_read = 1
+    WHERE user_id = ? AND id IN (${placeholders}) AND is_read = 0
+  `);
+
+  const result = stmt.run(...params);
+  return result.changes;
+}

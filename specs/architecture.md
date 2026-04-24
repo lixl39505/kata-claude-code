@@ -114,7 +114,7 @@ flowchart TB
         StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list with mentions"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]
-        NotificationAPI["Notification API<br/>list / mark read"]
+        NotificationAPI["Notification API<br/>list / unread-count / mark read / batch read"]
     end
 
     subgraph Validation["校验层"]
@@ -353,4 +353,5 @@ details?: object
 - 用户通知（提及、指派变更）
 - 约束: userId 必须存在，type 为 MENTION 或 ASSIGNEE_CHANGED
 - 级联删除: 用户/Issue/评论删除时自动删除通知
+- 支持: 未读计数 / 批量标记已读 / 全部标记已读
 

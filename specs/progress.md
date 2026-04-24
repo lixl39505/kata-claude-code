@@ -22,11 +22,11 @@
 - Issue 关闭原因统计（按 closeReason 统计 CLOSED Issue 数量）
 - Issue Dashboard 统计（总数 / 状态分布 / 关闭原因统计）
 - 基础通知能力（mention / assignee 变更通知 / 已读标记）
+- 通知未读计数与批量已读（未读数量查询 / 批量标记已读 / 全部标记已读）
 
 ## 当前任务
 
-- 基础通知能力（task-018-notifications）- 已完成
-- 基础通知能力（task-018-notifications）- 已完成
+- 通知未读计数与批量已读（task-019-notification-read）- 已完成
 
 ## 近期待办候选
 

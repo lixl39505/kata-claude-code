@@ -2,8 +2,14 @@ import Database from 'better-sqlite3';
 import {
   createNotification,
   markNotificationAsRead as markNotificationAsReadDb,
+  findNotificationById,
 } from '@/lib/db/notifications';
-import { listNotifications, markNotificationAsRead } from '@/lib/services/notification';
+import {
+  listNotifications,
+  markNotificationAsRead,
+  getUnreadCount,
+  markNotificationsAsRead,
+} from '@/lib/services/notification';
 
 // Mock the auth module
 jest.mock('@/lib/services/auth', () => ({
@@ -336,6 +342,281 @@ describe('Notification Service', () => {
       (requireAuthenticatedUser as jest.Mock).mockRejectedValue(new Error('UNAUTHENTICATED'));
 
       await expect(markNotificationAsRead('some-id')).rejects.toThrow('UNAUTHENTICATED');
+    });
+  });
+
+  describe('getUnreadCount', () => {
+    it('should return 0 for user with no notifications', async () => {
+      const count = await getUnreadCount();
+
+      expect(count).toBe(0);
+    });
+
+    it('should return count of unread notifications', async () => {
+      // Create 3 unread notifications
+      createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      createNotification(db, {
+        userId: mockUser.id,
+        type: 'ASSIGNEE_CHANGED',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      const count = await getUnreadCount();
+
+      expect(count).toBe(3);
+    });
+
+    it('should not count read notifications', async () => {
+      // Create unread notification
+      createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Create read notification
+      const notification2 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'ASSIGNEE_CHANGED',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      markNotificationAsReadDb(db, notification2.id);
+
+      const count = await getUnreadCount();
+
+      expect(count).toBe(1);
+    });
+
+    it('should only count current user notifications', async () => {
+      // Create notification for current user
+      createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Create notification for another user
+      createNotification(db, {
+        userId: 'user-2',
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      const count = await getUnreadCount();
+
+      expect(count).toBe(1);
+    });
+
+    it('should require authentication', async () => {
+      (requireAuthenticatedUser as jest.Mock).mockRejectedValue(new Error('UNAUTHENTICATED'));
+
+      await expect(getUnreadCount()).rejects.toThrow('UNAUTHENTICATED');
+    });
+  });
+
+  describe('markNotificationsAsRead', () => {
+    it('should mark all notifications as read when no ids provided', async () => {
+      // Create 3 unread notifications
+      const notification1 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      const notification2 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'ASSIGNEE_CHANGED',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      const notification3 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      const updatedCount = await markNotificationsAsRead();
+
+      expect(updatedCount).toBe(3);
+
+      // Verify all are marked as read
+      const result1 = findNotificationById(db, notification1.id);
+      const result2 = findNotificationById(db, notification2.id);
+      const result3 = findNotificationById(db, notification3.id);
+
+      expect(result1?.isRead).toBe(true);
+      expect(result2?.isRead).toBe(true);
+      expect(result3?.isRead).toBe(true);
+    });
+
+    it('should mark specific notifications as read when ids provided', async () => {
+      const notification1 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      const notification2 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'ASSIGNEE_CHANGED',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      const notification3 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Mark only notification1 and notification2 as read
+      const updatedCount = await markNotificationsAsRead([notification1.id, notification2.id]);
+
+      expect(updatedCount).toBe(2);
+
+      // Verify notification1 and notification2 are marked as read
+      const result1 = findNotificationById(db, notification1.id);
+      const result2 = findNotificationById(db, notification2.id);
+      const result3 = findNotificationById(db, notification3.id);
+
+      expect(result1?.isRead).toBe(true);
+      expect(result2?.isRead).toBe(true);
+      expect(result3?.isRead).toBe(false);
+    });
+
+    it('should only mark current user notifications', async () => {
+      // Create notification for current user
+      const notification1 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Create notification for another user
+      const notification2 = createNotification(db, {
+        userId: 'user-2',
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Try to mark both as read (should only mark current user's)
+      const updatedCount = await markNotificationsAsRead([notification1.id, notification2.id]);
+
+      expect(updatedCount).toBe(1);
+
+      // Verify notification1 is marked as read
+      const result1 = findNotificationById(db, notification1.id);
+      expect(result1?.isRead).toBe(true);
+
+      // Verify notification2 is NOT marked as read (belongs to another user)
+      const result2 = findNotificationById(db, notification2.id);
+      expect(result2?.isRead).toBe(false);
+    });
+
+    it('should be idempotent - marking already read notifications returns 0', async () => {
+      const notification1 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Mark as read first time
+      const updatedCount1 = await markNotificationsAsRead([notification1.id]);
+      expect(updatedCount1).toBe(1);
+
+      // Mark as read second time (should return 0 since already read)
+      const updatedCount2 = await markNotificationsAsRead([notification1.id]);
+      expect(updatedCount2).toBe(0);
+    });
+
+    it('should handle empty array by returning 0', async () => {
+      const updatedCount = await markNotificationsAsRead([]);
+
+      expect(updatedCount).toBe(0);
+    });
+
+    it('should handle non-existent notification ids gracefully', async () => {
+      const updatedCount = await markNotificationsAsRead(['non-existent-id-1', 'non-existent-id-2']);
+
+      expect(updatedCount).toBe(0);
+    });
+
+    it('should handle mixed valid and invalid notification ids', async () => {
+      const notification = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Mix valid and invalid IDs
+      const updatedCount = await markNotificationsAsRead([
+        notification.id,
+        'non-existent-id',
+      ]);
+
+      expect(updatedCount).toBe(1);
+
+      // Verify the valid notification was marked as read
+      const result = findNotificationById(db, notification.id);
+      expect(result?.isRead).toBe(true);
+    });
+
+    it('should require authentication', async () => {
+      (requireAuthenticatedUser as jest.Mock).mockRejectedValue(new Error('UNAUTHENTICATED'));
+
+      await expect(markNotificationsAsRead()).rejects.toThrow('UNAUTHENTICATED');
+    });
+
+    it('should not affect already read notifications when marking all as read', async () => {
+      // Create 2 unread and 1 read notification
+      createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      createNotification(db, {
+        userId: mockUser.id,
+        type: 'ASSIGNEE_CHANGED',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+      const notification3 = createNotification(db, {
+        userId: mockUser.id,
+        type: 'MENTION',
+        issueId: 'issue-1',
+        projectId: 'project-1',
+      });
+
+      // Mark notification3 as read
+      markNotificationAsReadDb(db, notification3.id);
+
+      // Mark all as read
+      const updatedCount = await markNotificationsAsRead();
+
+      // Should only update the 2 unread notifications
+      expect(updatedCount).toBe(2);
     });
   });
 });

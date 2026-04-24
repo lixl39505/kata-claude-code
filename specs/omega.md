@@ -67,7 +67,7 @@
 
 ## task16 issue 统计
 
-- [ ] nr test 失败了, 但未修复
+- [x] nr test 失败了, 但未修复
 
 ## task17 评论 @ 提及功能
 
@@ -83,7 +83,9 @@
 
 - [ ] db 迁移文件未支持回滚
 
-## task21
+## task21 乐观锁
+
+- [ ] 破坏了之前的部分 validator 和 test
 
 ## task21
 

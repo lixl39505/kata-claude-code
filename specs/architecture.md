@@ -258,12 +258,16 @@ flowchart TB
 
 ## 并发控制
 
-- Issue 更新必须使用乐观锁（updatedAt 或 version）
+- Issue 更新必须使用乐观锁（updatedAt）
+  - 所有更新操作（状态、指派、标题、描述）必须提供 `expectedUpdatedAt` 参数
+  - 数据库层在更新前校验 `expectedUpdatedAt` 是否与当前记录一致
+  - 不一致时抛出 `CONFLICT` 错误，包含当前 issue 数据
   - 状态变更必须原子执行
 - Issue 状态变更必须通过统一状态机函数, 禁止直接修改状态字段
   - 非法转换必须抛出错误
 - 发生冲突必须返回 CONFLICT 错误
 - 禁止静默覆盖
+- API 端点：`PATCH /api/issues/:id` 支持更新 title 和 description
 
 ## 审计日志
 

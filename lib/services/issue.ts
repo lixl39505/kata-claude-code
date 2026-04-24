@@ -3,7 +3,7 @@ import {
   createIssue as createIssueDb,
   findIssuesByProjectId,
   findIssueById,
-  updateIssue,
+  updateIssue as updateIssueDb,
   findIssuesWithFilters,
   countIssuesWithFilters,
   getCloseReasonStats as getCloseReasonStatsDb,
@@ -14,8 +14,8 @@ import { isProjectMember as isProjectMemberDb } from '@/lib/db/project-members';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { createAssigneeChangedNotification } from './notification';
-import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError } from '@/lib/errors/helpers';
-import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition, CloseReasonStatsInput, CloseReasonStatsResult, DashboardStatsInput, DashboardStatsResult } from '@/lib/validators/issue';
+import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError, ConflictError } from '@/lib/errors/helpers';
+import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, UpdateIssueInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition, CloseReasonStatsInput, CloseReasonStatsResult, DashboardStatsInput, DashboardStatsResult } from '@/lib/validators/issue';
 import { PRESET_VIEWS } from '@/lib/validators/issue';
 
 export interface Issue {
@@ -195,29 +195,40 @@ export async function updateIssueState(
   const closeReason = getCloseReasonForState(data.state, data.closeReason);
 
   // Use transaction to ensure atomicity of status update and audit logging
-  return executeInTransactionAsync(db, (txnDb) => {
-    // Update issue state and closeReason
-    const updatedIssue = updateIssue(txnDb, issueId, {
-      status: data.state,
-      closeReason: closeReason,
-    });
+  try {
+    return executeInTransactionAsync(db, (txnDb) => {
+      // Update issue state and closeReason with optimistic locking
+      const updatedIssue = updateIssueDb(txnDb, issueId, {
+        status: data.state,
+        closeReason: closeReason,
+      }, data.expectedUpdatedAt);
 
-    if (!updatedIssue) {
-      throw new InternalError('Failed to update issue state');
+      if (!updatedIssue) {
+        throw new InternalError('Failed to update issue state');
+      }
+
+      // Write audit log for state change
+      createIssueAuditLog(txnDb, {
+        issueId: issueId,
+        projectId: projectId,
+        actorId: user.id,
+        action: 'ISSUE_STATUS_CHANGED',
+        fromStatus: currentIssue.status,
+        toStatus: data.state,
+      });
+
+      return updatedIssue;
+    });
+  } catch (error) {
+    // Handle optimistic locking conflict
+    if (error instanceof Error && 'code' in error && error.code === 'CONFLICT') {
+      const conflictError = error as Error & { code: string; currentIssue?: Issue };
+      throw new ConflictError('Issue has been modified by another user. Please refresh and try again.', {
+        currentIssue: conflictError.currentIssue,
+      });
     }
-
-    // Write audit log for state change
-    createIssueAuditLog(txnDb, {
-      issueId: issueId,
-      projectId: projectId,
-      actorId: user.id,
-      action: 'ISSUE_STATUS_CHANGED',
-      fromStatus: currentIssue.status,
-      toStatus: data.state,
-    });
-
-    return updatedIssue;
-  });
+    throw error;
+  }
 }
 
 export async function updateIssueAssignee(
@@ -264,35 +275,132 @@ export async function updateIssueAssignee(
   }
 
   // Use transaction to ensure atomicity
-  return executeInTransactionAsync(db, (txnDb) => {
-    const updatedIssue = updateIssue(txnDb, issueId, {
-      assigneeId: data.assigneeId,
+  try {
+    return executeInTransactionAsync(db, (txnDb) => {
+      const updatedIssue = updateIssueDb(txnDb, issueId, {
+        assigneeId: data.assigneeId,
+      }, data.expectedUpdatedAt);
+
+      if (!updatedIssue) {
+        throw new InternalError('Failed to update issue assignee');
+      }
+
+      // Write audit log for assignee change
+      createIssueAuditLog(txnDb, {
+        issueId: issueId,
+        projectId: projectId,
+        actorId: user.id,
+        action: 'ISSUE_ASSIGNEE_CHANGED',
+        fromStatus: null,
+        toStatus: null,
+        fromAssigneeId: currentIssue.assigneeId,
+        toAssigneeId: data.assigneeId,
+      });
+
+      // Create notification for the new assignee if assignee actually changed
+      // Only notify when assignee is different from current assignee
+      if (data.assigneeId !== null && data.assigneeId !== currentIssue.assigneeId) {
+        createAssigneeChangedNotification(data.assigneeId, issueId, projectId);
+      }
+
+      return updatedIssue;
     });
-
-    if (!updatedIssue) {
-      throw new InternalError('Failed to update issue assignee');
+  } catch (error) {
+    // Handle optimistic locking conflict
+    if (error instanceof Error && 'code' in error && error.code === 'CONFLICT') {
+      const conflictError = error as Error & { code: string; currentIssue?: Issue };
+      throw new ConflictError('Issue has been modified by another user. Please refresh and try again.', {
+        currentIssue: conflictError.currentIssue,
+      });
     }
+    throw error;
+  }
+}
 
-    // Write audit log for assignee change
-    createIssueAuditLog(txnDb, {
-      issueId: issueId,
-      projectId: projectId,
-      actorId: user.id,
-      action: 'ISSUE_ASSIGNEE_CHANGED',
-      fromStatus: null,
-      toStatus: null,
-      fromAssigneeId: currentIssue.assigneeId,
-      toAssigneeId: data.assigneeId,
+/**
+ * Update issue fields (title, description) with optimistic locking
+ */
+export async function updateIssue(
+  projectId: string,
+  issueId: string,
+  data: UpdateIssueInput
+): Promise<Issue> {
+  const db = getDb();
+  const user = await requireAuthenticatedUser();
+
+  // Verify project exists and user is a member
+  const project = findProjectById(db, projectId);
+  if (!project) {
+    throw new NotFoundError('Project');
+  }
+
+  // Check if user is a project member
+  if (!isProjectMemberDb(db, projectId, user.id)) {
+    throw new ForbiddenError('You do not have access to this project');
+  }
+
+  // Find current issue
+  const currentIssue = findIssueById(db, issueId);
+  if (!currentIssue) {
+    throw new NotFoundError('Issue');
+  }
+
+  // Verify issue belongs to the specified project
+  if (currentIssue.projectId !== projectId) {
+    throw new NotFoundError('Issue');
+  }
+
+  // Use transaction to ensure atomicity of update and audit logging
+  try {
+    return executeInTransactionAsync(db, (txnDb) => {
+      // Build update object
+      const updateFields: {
+        title?: string;
+        description?: string | null;
+      } = {};
+
+      if (data.title !== undefined) {
+        updateFields.title = data.title;
+      }
+
+      if (data.description !== undefined) {
+        updateFields.description = data.description;
+      }
+
+      // Update issue with optimistic locking
+      const updatedIssue = updateIssueDb(txnDb, issueId, updateFields, data.expectedUpdatedAt);
+
+      if (!updatedIssue) {
+        throw new InternalError('Failed to update issue');
+      }
+
+      // Write audit log for title/description changes
+      const titleChanged = data.title !== undefined && data.title !== currentIssue.title;
+      const descriptionChanged = data.description !== undefined && data.description !== currentIssue.description;
+
+      if (titleChanged || descriptionChanged) {
+        createIssueAuditLog(txnDb, {
+          issueId: issueId,
+          projectId: projectId,
+          actorId: user.id,
+          action: 'ISSUE_STATUS_CHANGED', // Using existing action type for simplicity
+          fromStatus: null,
+          toStatus: null,
+        });
+      }
+
+      return updatedIssue;
     });
-
-    // Create notification for the new assignee if assignee actually changed
-    // Only notify when assignee is different from current assignee
-    if (data.assigneeId !== null && data.assigneeId !== currentIssue.assigneeId) {
-      createAssigneeChangedNotification(data.assigneeId, issueId, projectId);
+  } catch (error) {
+    // Handle optimistic locking conflict
+    if (error instanceof Error && 'code' in error && error.code === 'CONFLICT') {
+      const conflictError = error as Error & { code: string; currentIssue?: Issue };
+      throw new ConflictError('Issue has been modified by another user. Please refresh and try again.', {
+        currentIssue: conflictError.currentIssue,
+      });
     }
-
-    return updatedIssue;
-  });
+    throw error;
+  }
 }
 
 export interface IssueListResult {
@@ -482,7 +590,7 @@ export async function batchUpdateIssues(data: BatchUpdateIssuesInput): Promise<{
       }
 
       // Update the issue
-      const updatedIssue = updateIssue(txnDb, issue.id, updateFields);
+      const updatedIssue = updateIssueDb(txnDb, issue.id, updateFields);
       if (!updatedIssue) {
         throw new InternalError(`Failed to update issue ${issue.id}`);
       }

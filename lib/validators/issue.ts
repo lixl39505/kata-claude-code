@@ -33,6 +33,7 @@ export const updateIssueStateSchema = z
   .object({
     state: z.enum(['OPEN', 'CLOSED']),
     closeReason: z.enum(['COMPLETED', 'NOT_PLANNED', 'DUPLICATE']).optional(),
+    expectedUpdatedAt: z.string().min(1, 'expectedUpdatedAt is required'),
   })
   .refine(
     (data) => {
@@ -53,9 +54,37 @@ export type UpdateIssueStateInput = z.infer<typeof updateIssueStateSchema>;
 
 export const updateIssueAssigneeSchema = z.object({
   assigneeId: z.string().uuid('Invalid assignee ID').nullable(),
+  expectedUpdatedAt: z.string().min(1, 'expectedUpdatedAt is required'),
 });
 
 export type UpdateIssueAssigneeInput = z.infer<typeof updateIssueAssigneeSchema>;
+
+export const updateIssueSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Title must be at least 1 character')
+      .max(200, 'Title must be at most 200 characters')
+      .optional(),
+    description: z
+      .string()
+      .trim()
+      .max(5000, 'Description must be at most 5000 characters')
+      .transform((val) => (val === '' ? null : val))
+      .nullable()
+      .optional(),
+    expectedUpdatedAt: z.string().min(1, 'expectedUpdatedAt is required'),
+  })
+  .refine(
+    (data) => data.title !== undefined || data.description !== undefined,
+    {
+      message: 'At least one field (title or description) must be provided',
+      path: ['root'],
+    }
+  );
+
+export type UpdateIssueInput = z.infer<typeof updateIssueSchema>;
 
 export const issueFiltersSchema = z.object({
   projectId: z.string().uuid('Invalid project ID').optional(),

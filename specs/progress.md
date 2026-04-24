@@ -28,6 +28,7 @@
 ## 当前任务
 
 - 用户自定义视图（task-020-custom-views）- 已完成
+- Issue 乐观锁（task-021-optimistic-locking）- 已完成
 
 ## 近期待办候选
 

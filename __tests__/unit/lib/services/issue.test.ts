@@ -384,6 +384,7 @@ describe('Issue Service', () => {
     it('should allow OPEN → CLOSED transition', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -410,13 +411,14 @@ describe('Issue Service', () => {
       expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
         status: 'CLOSED',
         closeReason: 'COMPLETED',
-      });
+      }, '2024-01-01T00:00:00.000Z');
     });
 
     it('should allow OPEN → CLOSED transition with explicit closeReason', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
         closeReason: 'NOT_PLANNED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -445,6 +447,7 @@ describe('Issue Service', () => {
     it('should allow CLOSED → OPEN transition', async () => {
       const input: UpdateIssueStateInput = {
         state: 'OPEN',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -473,6 +476,7 @@ describe('Issue Service', () => {
     it('should default closeReason to COMPLETED when not provided', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -500,6 +504,7 @@ describe('Issue Service', () => {
     it('should reject CLOSED → CLOSED transition (same state)', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -520,6 +525,7 @@ describe('Issue Service', () => {
     it('should reject OPEN → OPEN transition (same state)', async () => {
       const input: UpdateIssueStateInput = {
         state: 'OPEN',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -540,6 +546,7 @@ describe('Issue Service', () => {
     it('should throw UnauthenticatedError when user is not authenticated', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       mockRequireAuthenticatedUser.mockRejectedValue(
@@ -554,6 +561,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when project does not exist', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -567,6 +575,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when project belongs to different user', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const otherUsersProject = {
@@ -586,6 +595,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when issue does not exist', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -600,6 +610,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when issue belongs to different project', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const otherProjectsIssue = {
@@ -619,6 +630,7 @@ describe('Issue Service', () => {
     it('should update updated_at timestamp', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -649,6 +661,7 @@ describe('Issue Service', () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
         closeReason: 'DUPLICATE',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -751,6 +764,7 @@ describe('Issue Service', () => {
     it('should create audit log when state changes', async () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -801,6 +815,7 @@ describe('Issue Service', () => {
       const input: UpdateIssueStateInput = {
         state: 'CLOSED',
         closeReason: 'NOT_PLANNED',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -848,6 +863,7 @@ describe('Issue Service', () => {
     it('should set assignee when user exists', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -872,12 +888,13 @@ describe('Issue Service', () => {
       expect(mockFindUserById).toHaveBeenCalledWith(mockDb, 'user-456');
       expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
         assigneeId: 'user-456',
-      });
+      }, '2024-01-01T00:00:00.000Z');
     });
 
     it('should modify assignee when assignee already exists', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -906,12 +923,13 @@ describe('Issue Service', () => {
       expect(result.assigneeId).toBe('user-456');
       expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
         assigneeId: 'user-456',
-      });
+      }, '2024-01-01T00:00:00.000Z');
     });
 
     it('should clear assignee when set to null', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: null,
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -935,12 +953,13 @@ describe('Issue Service', () => {
       expect(mockFindUserById).not.toHaveBeenCalled();
       expect(mockUpdateIssueDb).toHaveBeenCalledWith(mockDb, 'issue-123', {
         assigneeId: null,
-      });
+      }, '2024-01-01T00:00:00.000Z');
     });
 
     it('should throw NotFoundError when assignee user does not exist', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'non-existent-user',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -964,6 +983,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when project does not exist', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -980,6 +1000,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when project belongs to different user (cross-project)', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const otherUsersProject = {
@@ -999,6 +1020,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when issue does not exist', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       mockRequireAuthenticatedUser.mockResolvedValue(mockUser);
@@ -1016,6 +1038,7 @@ describe('Issue Service', () => {
     it('should throw NotFoundError when issue belongs to different project', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const otherProjectsIssue = {
@@ -1035,6 +1058,7 @@ describe('Issue Service', () => {
     it('should throw UnauthenticatedError when user is not authenticated', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       mockRequireAuthenticatedUser.mockRejectedValue(
@@ -1049,6 +1073,7 @@ describe('Issue Service', () => {
     it('should create audit log when assignee changes', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -1099,6 +1124,7 @@ describe('Issue Service', () => {
     it('should create audit log when clearing assignee', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: null,
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {
@@ -1143,6 +1169,7 @@ describe('Issue Service', () => {
     it('should return updated issue with new assignee', async () => {
       const input: UpdateIssueAssigneeInput = {
         assigneeId: 'user-456',
+        expectedUpdatedAt: '2024-01-01T00:00:00.000Z',
       };
 
       const currentIssue = {

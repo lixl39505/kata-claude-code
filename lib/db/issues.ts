@@ -24,6 +24,11 @@ export interface IssueData {
   assigneeId?: string | null;
 }
 
+export interface IssueUpdateConflictError extends Error {
+  code: 'CONFLICT';
+  currentIssue: Issue;
+}
+
 export function createIssue(db: Database.Database, data: IssueData): Issue {
   const now = new Date().toISOString();
   const id = randomUUID();
@@ -74,10 +79,19 @@ export function findIssueById(db: Database.Database, issueId: string): Issue | n
 export function updateIssue(
   db: Database.Database,
   issueId: string,
-  updates: Partial<Pick<IssueData, 'status' | 'closeReason' | 'assigneeId'>>
+  updates: Partial<Pick<IssueData, 'status' | 'closeReason' | 'assigneeId' | 'title' | 'description'>>,
+  expectedUpdatedAt?: string
 ): Issue | null {
   const current = findIssueById(db, issueId);
   if (!current) return null;
+
+  // Optimistic locking: check if the issue has been modified since it was read
+  if (expectedUpdatedAt !== undefined && current.updatedAt !== expectedUpdatedAt) {
+    const error = new Error('Issue has been modified by another user') as IssueUpdateConflictError;
+    error.code = 'CONFLICT';
+    error.currentIssue = current;
+    throw error;
+  }
 
   const now = new Date().toISOString();
   const fields: string[] = [];
@@ -96,6 +110,16 @@ export function updateIssue(
   if (updates.assigneeId !== undefined) {
     fields.push('assignee_id = ?');
     values.push(updates.assigneeId);
+  }
+
+  if (updates.title !== undefined) {
+    fields.push('title = ?');
+    values.push(updates.title);
+  }
+
+  if (updates.description !== undefined) {
+    fields.push('description = ?');
+    values.push(updates.description);
   }
 
   if (fields.length === 0) return current;

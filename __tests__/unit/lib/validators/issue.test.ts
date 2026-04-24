@@ -114,86 +114,116 @@ describe('Issue Validators', () => {
   });
 
   describe('updateIssueStateSchema', () => {
+    const expectedUpdatedAt = '2024-01-01T00:00:00.000Z';
+
     it('should validate OPEN state', () => {
-      const result = updateIssueStateSchema.parse({ state: 'OPEN' });
-      expect(result).toEqual({ state: 'OPEN' });
+      const result = updateIssueStateSchema.parse({ state: 'OPEN', expectedUpdatedAt });
+      expect(result).toEqual({ state: 'OPEN', expectedUpdatedAt });
     });
 
     it('should validate CLOSED state', () => {
-      const result = updateIssueStateSchema.parse({ state: 'CLOSED' });
-      expect(result).toEqual({ state: 'CLOSED' });
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED', expectedUpdatedAt });
+      expect(result).toEqual({ state: 'CLOSED', expectedUpdatedAt });
     });
 
     it('should validate CLOSED state with COMPLETED reason', () => {
-      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'COMPLETED' });
-      expect(result).toEqual({ state: 'CLOSED', closeReason: 'COMPLETED' });
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'COMPLETED', expectedUpdatedAt });
+      expect(result).toEqual({ state: 'CLOSED', closeReason: 'COMPLETED', expectedUpdatedAt });
     });
 
     it('should validate CLOSED state with NOT_PLANNED reason', () => {
-      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'NOT_PLANNED' });
-      expect(result).toEqual({ state: 'CLOSED', closeReason: 'NOT_PLANNED' });
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'NOT_PLANNED', expectedUpdatedAt });
+      expect(result).toEqual({ state: 'CLOSED', closeReason: 'NOT_PLANNED', expectedUpdatedAt });
     });
 
     it('should validate CLOSED state with DUPLICATE reason', () => {
-      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'DUPLICATE' });
-      expect(result).toEqual({ state: 'CLOSED', closeReason: 'DUPLICATE' });
+      const result = updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'DUPLICATE', expectedUpdatedAt });
+      expect(result).toEqual({ state: 'CLOSED', closeReason: 'DUPLICATE', expectedUpdatedAt });
     });
 
     it('should reject invalid state', () => {
       expect(() =>
-        updateIssueStateSchema.parse({ state: 'INVALID' })
+        updateIssueStateSchema.parse({ state: 'INVALID', expectedUpdatedAt })
       ).toThrow(ZodError);
     });
 
     it('should reject empty state', () => {
       expect(() =>
-        updateIssueStateSchema.parse({ state: '' })
+        updateIssueStateSchema.parse({ state: '', expectedUpdatedAt })
       ).toThrow(ZodError);
     });
 
     it('should reject OPEN state with closeReason', () => {
       expect(() =>
-        updateIssueStateSchema.parse({ state: 'OPEN', closeReason: 'COMPLETED' })
+        updateIssueStateSchema.parse({ state: 'OPEN', closeReason: 'COMPLETED', expectedUpdatedAt })
       ).toThrow(ZodError);
     });
 
     it('should reject invalid closeReason', () => {
       expect(() =>
-        updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'INVALID' })
+        updateIssueStateSchema.parse({ state: 'CLOSED', closeReason: 'INVALID', expectedUpdatedAt })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject missing expectedUpdatedAt', () => {
+      expect(() =>
+        updateIssueStateSchema.parse({ state: 'OPEN' })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject empty expectedUpdatedAt', () => {
+      expect(() =>
+        updateIssueStateSchema.parse({ state: 'OPEN', expectedUpdatedAt: '' })
       ).toThrow(ZodError);
     });
   });
 
   describe('updateIssueAssigneeSchema', () => {
+    const expectedUpdatedAt = '2024-01-01T00:00:00.000Z';
+
     it('should validate setting assignee to valid UUID', () => {
       const result = updateIssueAssigneeSchema.parse({
-        assigneeId: '550e8400-e29b-41d4-a716-446655440000'
+        assigneeId: '550e8400-e29b-41d4-a716-446655440000',
+        expectedUpdatedAt
       });
       expect(result).toEqual({
-        assigneeId: '550e8400-e29b-41d4-a716-446655440000'
+        assigneeId: '550e8400-e29b-41d4-a716-446655440000',
+        expectedUpdatedAt
       });
     });
 
     it('should validate clearing assignee (null)', () => {
-      const result = updateIssueAssigneeSchema.parse({ assigneeId: null });
-      expect(result).toEqual({ assigneeId: null });
+      const result = updateIssueAssigneeSchema.parse({ assigneeId: null, expectedUpdatedAt });
+      expect(result).toEqual({ assigneeId: null, expectedUpdatedAt });
     });
 
     it('should reject non-UUID assignee ID', () => {
       expect(() =>
-        updateIssueAssigneeSchema.parse({ assigneeId: 'not-a-uuid' })
+        updateIssueAssigneeSchema.parse({ assigneeId: 'not-a-uuid', expectedUpdatedAt })
       ).toThrow(ZodError);
     });
 
     it('should reject empty string assignee ID', () => {
       expect(() =>
-        updateIssueAssigneeSchema.parse({ assigneeId: '' })
+        updateIssueAssigneeSchema.parse({ assigneeId: '', expectedUpdatedAt })
       ).toThrow(ZodError);
     });
 
     it('should reject undefined assignee ID', () => {
       expect(() =>
-        updateIssueAssigneeSchema.parse({ assigneeId: undefined })
+        updateIssueAssigneeSchema.parse({ assigneeId: undefined, expectedUpdatedAt })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject missing expectedUpdatedAt', () => {
+      expect(() =>
+        updateIssueAssigneeSchema.parse({ assigneeId: null })
+      ).toThrow(ZodError);
+    });
+
+    it('should reject empty expectedUpdatedAt', () => {
+      expect(() =>
+        updateIssueAssigneeSchema.parse({ assigneeId: null, expectedUpdatedAt: '' })
       ).toThrow(ZodError);
     });
   });

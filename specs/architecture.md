@@ -112,7 +112,7 @@ flowchart TB
         IssueAPI["Issue API<br/>create / list / detail / batch / views"]
         IssueStatsAPI["Issue Stats API<br/>close reason stats / dashboard"]
         StateAPI["Issue State API<br/>state transition"]
-        CommentAPI["Comment API<br/>create / list"]
+        CommentAPI["Comment API<br/>create / list with mentions"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]
     end
 
@@ -123,6 +123,8 @@ flowchart TB
         IssueValidator["Issue Validators<br/>(preset views, stats)"]
         StateValidator["State Validators"]
         CommentValidator["Comment Validators"]
+        CommentMentionParser["Comment Mention Parser<br/>parse @ from content"]
+        CommentMentionValidator["Comment Mention Validator<br/>validate project members"]
         AssigneeValidator["Assignee Validators"]
     end
 
@@ -132,7 +134,7 @@ flowchart TB
         ProjectMemberService["Project Member Service"]
         IssueService["Issue Service<br/>(preset views, stats)"]
         IssueStateService["Issue State Service"]
-        CommentService["Comment Service"]
+        CommentService["Comment Service<br/>with mentions support"]
         AssigneeService["Assignee Service"]
         AuditService["Audit Service"]
     end
@@ -149,6 +151,7 @@ flowchart TB
         ProjectMembers[("project_members")]
         Issues[("issues")]
         IssueComments[("issue_comments")]
+        IssueCommentMentions[("issue_comment_mentions")]
         IssueAuditLogs[("issue_audit_logs")]
     end
 
@@ -303,3 +306,31 @@ details?: object
 - 所有数据库操作集中在 lib/db
 - 禁止在 UI 或 API 中直接执行 SQL
 - 数据迁移必须可重复执行
+
+## 核心实体
+
+### User (用户)
+- id, email, name, role
+- 用于系统认证和权限控制
+
+### Project (项目)
+- id, name, key, description, ownerId
+- 组织 Issue 的基本单位
+
+### Issue (问题)
+- id, title, description, status, closeReason, projectId, createdById, assigneeId
+- 核心业务实体
+
+### IssueComment (评论)
+- id, content, issueId, projectId, authorId, createdAt
+- Issue 的评论内容
+
+### CommentMention (评论提及)
+- id, commentId, issueId, projectId, mentionedUserId, createdAt
+- 评论中的 @ 提及记录
+- 约束: commentId + mentionedUserId 唯一
+- 级联删除: 评论删除时自动删除相关提及
+- 仅允许提及 Project 成员
+
+### AuditLog (审计日志)
+- 记录关键操作行为

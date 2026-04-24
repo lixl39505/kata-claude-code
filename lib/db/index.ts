@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 export { executeInTransaction, executeInTransactionAsync } from './transaction';
 export * from './project-members';
+export * from './issue-comment-mentions';
 
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'database.sqlite');
 

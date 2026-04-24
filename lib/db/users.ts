@@ -96,3 +96,23 @@ export function updateUser(
 
   return findUserById(db, id);
 }
+
+/**
+ * Extract local part from email address.
+ * For example, "user@example.com" -> "user"
+ *
+ * @param email - The email address
+ * @returns The local part of the email, or null if invalid
+ */
+export function getEmailLocalPart(email: string): string | null {
+  if (!email || !email.includes('@')) {
+    return null;
+  }
+
+  const parts = email.split('@');
+  if (parts.length !== 2 || parts[0].length === 0) {
+    return null;
+  }
+
+  return parts[0].toLowerCase();
+}

@@ -12,6 +12,7 @@
 - Issue 状态流转（GitHub 风格二态模型 + 关闭原因）
 - Issue 审计日志（创建 / 状态变更记录）
 - Issue 评论（创建 / 列表）
+- Issue 评论 @ 提及（识别 / 验证 / 保存）
 - Issue 指派（assignee）
 - Project 成员管理（添加 / 移除 / 列表）
 - Project 访问边界（成员可见 / 非成员不可访问）
@@ -24,12 +25,12 @@
 ## 当前任务
 
 - Issue Dashboard 统计（task-016-issue-dashboard）- 已完成
+- Issue 评论 @ 提及（task-017-comment-mentions）- 已完成
 
 ## 近期待办候选
 
-- 评论 @ 提及（基础版）
-- Issue 批量删除（是否需要待定）
 - 通知基础（是否需要待定）
+- Issue 批量删除（是否需要待定）
 
 ## 当前决策
 

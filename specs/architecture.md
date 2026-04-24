@@ -355,3 +355,9 @@ details?: object
 - 级联删除: 用户/Issue/评论删除时自动删除通知
 - 支持: 未读计数 / 批量标记已读 / 全部标记已读
 
+### SavedView (自定义视图)
+- id, userId, name, filtersJson, createdAt
+- 用户自定义的 Issue 筛选条件保存
+- 约束: userId 必须存在，name 在同一用户下唯一
+- 级联删除: 用户删除时自动删除其保存的视图
+- 支持: 创建/列表/删除视图，使用视图查询 Issue

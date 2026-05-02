@@ -114,6 +114,7 @@ flowchart TB
         StateAPI["Issue State API<br/>state transition"]
         CommentAPI["Comment API<br/>create / list with mentions"]
         AssigneeAPI["Assignee API<br/>set / change / clear"]
+        AuditLogAPI["Audit Log API<br/>get issue audit logs with pagination"]
         NotificationAPI["Notification API<br/>list / unread-count / mark read / batch read"]
     end
 

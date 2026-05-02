@@ -34,7 +34,7 @@
 
 ## task7 issue 添加评论
 
-- [x] 任务过于简单
+- [x] task 过于简单
 
 ## task8 issue 分配
 
@@ -87,9 +87,10 @@
 
 - [ ] 破坏了之前的部分 validator 和 test
 
-## task21
+## task22 审计日志查询
 
-## task21
+- [x] 增加了一个略显重复的 API
+- [ ] task 又过于简单, 只涉及一个简单 API
 
 # 进化
 

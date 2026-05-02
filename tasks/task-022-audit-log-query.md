@@ -41,7 +41,7 @@
 
 ### 获取 Issue 审计日志
 
-GET /api/issues/:id/audit-logs
+GET /api/projects/[projectId]/issues/[issueId]/audit-logs
 
 输入:
 

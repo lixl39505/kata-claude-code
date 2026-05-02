@@ -2,6 +2,8 @@ import Database from 'better-sqlite3';
 import {
   createIssueAuditLog,
   findAuditLogsByIssueId,
+  findAuditLogsByIssueIdPaginated,
+  countAuditLogsByIssueId,
   findAuditLogsByProjectId,
   type IssueAuditLogData,
 } from '@/lib/db/issue-audit-logs';
@@ -176,7 +178,7 @@ describe('Issue Audit Logs Database Operations', () => {
       expect(logs).toEqual([]);
     });
 
-    it('should return audit logs for specific issue ordered by created_at ASC', () => {
+    it('should return audit logs for specific issue ordered by created_at DESC', () => {
       // Create audit logs with slight delays to ensure different timestamps
       const data1: IssueAuditLogData = {
         issueId: 'issue-1',
@@ -209,8 +211,8 @@ describe('Issue Audit Logs Database Operations', () => {
       const logs = findAuditLogsByIssueId(db, 'issue-1');
 
       expect(logs).toHaveLength(2);
-      expect(logs[0].id).toBe(log1.id);
-      expect(logs[1].id).toBe(log2.id);
+      expect(logs[0].id).toBe(log2.id); // Most recent first
+      expect(logs[1].id).toBe(log1.id);
     });
 
     it('should not return audit logs for different issue', () => {
@@ -287,6 +289,130 @@ describe('Issue Audit Logs Database Operations', () => {
 
       const logs = findAuditLogsByProjectId(db, 'different-project');
       expect(logs).toEqual([]);
+    });
+  });
+
+  describe('findAuditLogsByIssueIdPaginated', () => {
+    it('should return empty array when no audit logs exist', () => {
+      const logs = findAuditLogsByIssueIdPaginated(db, 'issue-1', 20, 0);
+      expect(logs).toEqual([]);
+    });
+
+    it('should return paginated audit logs ordered by created_at DESC', () => {
+      // Create multiple audit logs
+      const data1: IssueAuditLogData = {
+        issueId: 'issue-1',
+        projectId: 'project-1',
+        actorId: 'user-1',
+        action: 'ISSUE_CREATED',
+        fromStatus: null,
+        toStatus: 'OPEN',
+      };
+      const log1 = createIssueAuditLog(db, data1);
+
+      const startTime = Date.now();
+      while (Date.now() - startTime < 2) {
+        // Wait 2ms
+      }
+
+      const data2: IssueAuditLogData = {
+        issueId: 'issue-1',
+        projectId: 'project-1',
+        actorId: 'user-1',
+        action: 'ISSUE_STATUS_CHANGED',
+        fromStatus: 'OPEN',
+        toStatus: 'CLOSED',
+      };
+      const log2 = createIssueAuditLog(db, data2);
+
+      while (Date.now() - startTime < 4) {
+        // Wait 2ms more
+      }
+
+      const data3: IssueAuditLogData = {
+        issueId: 'issue-1',
+        projectId: 'project-1',
+        actorId: 'user-1',
+        action: 'ISSUE_ASSIGNEE_CHANGED',
+        fromStatus: null,
+        toStatus: null,
+        fromAssigneeId: null,
+        toAssigneeId: 'user-1',
+      };
+      const log3 = createIssueAuditLog(db, data3);
+
+      // Test limit
+      const logs = findAuditLogsByIssueIdPaginated(db, 'issue-1', 2, 0);
+      expect(logs).toHaveLength(2);
+      expect(logs[0].id).toBe(log3.id); // Most recent first
+      expect(logs[1].id).toBe(log2.id);
+
+      // Test offset
+      const logs2 = findAuditLogsByIssueIdPaginated(db, 'issue-1', 2, 2);
+      expect(logs2).toHaveLength(1);
+      expect(logs2[0].id).toBe(log1.id);
+    });
+
+    it('should not return audit logs for different issue', () => {
+      const data1: IssueAuditLogData = {
+        issueId: 'issue-1',
+        projectId: 'project-1',
+        actorId: 'user-1',
+        action: 'ISSUE_CREATED',
+        fromStatus: null,
+        toStatus: 'OPEN',
+      };
+      createIssueAuditLog(db, data1);
+
+      const logs = findAuditLogsByIssueIdPaginated(db, 'different-issue', 20, 0);
+      expect(logs).toEqual([]);
+    });
+  });
+
+  describe('countAuditLogsByIssueId', () => {
+    it('should return 0 when no audit logs exist', () => {
+      const count = countAuditLogsByIssueId(db, 'issue-1');
+      expect(count).toBe(0);
+    });
+
+    it('should return correct count of audit logs', () => {
+      const data1: IssueAuditLogData = {
+        issueId: 'issue-1',
+        projectId: 'project-1',
+        actorId: 'user-1',
+        action: 'ISSUE_CREATED',
+        fromStatus: null,
+        toStatus: 'OPEN',
+      };
+      createIssueAuditLog(db, data1);
+
+      const data2: IssueAuditLogData = {
+        issueId: 'issue-1',
+        projectId: 'project-1',
+        actorId: 'user-1',
+        action: 'ISSUE_STATUS_CHANGED',
+        fromStatus: 'OPEN',
+        toStatus: 'CLOSED',
+      };
+      createIssueAuditLog(db, data2);
+
+      const count = countAuditLogsByIssueId(db, 'issue-1');
+      expect(count).toBe(2);
+    });
+
+    it('should not count audit logs for different issue', () => {
+      const data1: IssueAuditLogData = {
+        issueId: 'issue-1',
+        projectId: 'project-1',
+        actorId: 'user-1',
+        action: 'ISSUE_CREATED',
+        fromStatus: null,
+        toStatus: 'OPEN',
+      };
+      createIssueAuditLog(db, data1);
+
+      const count = countAuditLogsByIssueId(db, 'different-issue');
+      expect(count).toBe(0);
     });
   });
 });

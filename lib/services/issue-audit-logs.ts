@@ -1,34 +1,44 @@
 import { getDb } from '@/lib/db';
-import { findAuditLogsByIssueId } from '@/lib/db/issue-audit-logs';
-import { findProjectById } from '@/lib/db/projects';
+import {
+  findAuditLogsByIssueIdPaginated,
+  countAuditLogsByIssueId,
+} from '@/lib/db/issue-audit-logs';
 import { findIssueById } from '@/lib/db/issues';
-import { requireAuthenticatedUser } from './auth';
+import { requireProjectMember } from './project-members';
 import { NotFoundError } from '@/lib/errors/helpers';
-import type { IssueAuditLog } from '@/lib/db/issue-audit-logs';
 
 /**
- * Get all audit logs for a specific issue.
- * Only the project owner can retrieve audit logs for their project's issues.
+ * Get audit logs for a specific issue with pagination.
+ * Project members (both owner and member) can retrieve audit logs for their project's issues.
  *
  * @param projectId - The ID of the project
  * @param issueId - The ID of the issue
- * @returns Array of audit logs for the issue, ordered by creation time ascending
+ * @param limit - Maximum number of records to return (default: 20)
+ * @param offset - Number of records to skip (default: 0)
+ * @returns Object containing audit log items and total count
  * @throws UnauthenticatedError if user is not authenticated
- * @throws NotFoundError if project doesn't exist or user doesn't own it
+ * @throws ForbiddenError if user is not a project member
+ * @throws NotFoundError if project doesn't exist
  * @throws NotFoundError if issue doesn't exist or doesn't belong to the project
  */
 export async function getAuditLogsForIssue(
   projectId: string,
-  issueId: string
-): Promise<IssueAuditLog[]> {
+  issueId: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<{
+  items: Array<{
+    id: string;
+    action: string;
+    actorId: string;
+    createdAt: string;
+  }>;
+  total: number;
+}> {
   const db = getDb();
-  const user = await requireAuthenticatedUser();
 
-  // Verify project exists and user owns it
-  const project = findProjectById(db, projectId);
-  if (!project || project.ownerId !== user.id) {
-    throw new NotFoundError('Project');
-  }
+  // Verify project exists and user is a member
+  await requireProjectMember(projectId);
 
   // Verify issue exists and belongs to the specified project
   const issue = findIssueById(db, issueId);
@@ -36,6 +46,19 @@ export async function getAuditLogsForIssue(
     throw new NotFoundError('Issue');
   }
 
-  // Get audit logs for the issue
-  return findAuditLogsByIssueId(db, issueId);
+  // Get total count
+  const total = countAuditLogsByIssueId(db, issueId);
+
+  // Get audit logs for the issue with pagination
+  const auditLogs = findAuditLogsByIssueIdPaginated(db, issueId, limit, offset);
+
+  // Transform to simplified output format
+  const items = auditLogs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    actorId: log.actorId,
+    createdAt: log.createdAt,
+  }));
+
+  return { items, total };
 }

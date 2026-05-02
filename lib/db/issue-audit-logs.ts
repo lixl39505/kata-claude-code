@@ -61,7 +61,7 @@ export function createIssueAuditLog(
 }
 
 /**
- * Find all audit logs for a specific issue, ordered by creation time ascending.
+ * Find all audit logs for a specific issue, ordered by creation time descending.
  *
  * @param db - The database instance
  * @param issueId - The ID of the issue
@@ -77,10 +77,59 @@ export function findAuditLogsByIssueId(
            from_assignee_id as fromAssigneeId, to_assignee_id as toAssigneeId, created_at as createdAt
     FROM issue_audit_logs
     WHERE issue_id = ?
-    ORDER BY created_at ASC
+    ORDER BY created_at DESC
   `);
 
   return stmt.all(issueId) as IssueAuditLog[];
+}
+
+/**
+ * Find audit logs for a specific issue with pagination, ordered by creation time descending.
+ *
+ * @param db - The database instance
+ * @param issueId - The ID of the issue
+ * @param limit - Maximum number of records to return
+ * @param offset - Number of records to skip
+ * @returns Array of audit logs for the issue
+ */
+export function findAuditLogsByIssueIdPaginated(
+  db: Database.Database,
+  issueId: string,
+  limit: number,
+  offset: number
+): IssueAuditLog[] {
+  const stmt = db.prepare(`
+    SELECT id, issue_id as issueId, project_id as projectId, actor_id as actorId,
+           action, from_status as fromStatus, to_status as toStatus,
+           from_assignee_id as fromAssigneeId, to_assignee_id as toAssigneeId, created_at as createdAt
+    FROM issue_audit_logs
+    WHERE issue_id = ?
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `);
+
+  return stmt.all(issueId, limit, offset) as IssueAuditLog[];
+}
+
+/**
+ * Count total audit logs for a specific issue.
+ *
+ * @param db - The database instance
+ * @param issueId - The ID of the issue
+ * @returns Total count of audit logs for the issue
+ */
+export function countAuditLogsByIssueId(
+  db: Database.Database,
+  issueId: string
+): number {
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM issue_audit_logs
+    WHERE issue_id = ?
+  `);
+
+  const result = stmt.get(issueId) as { count: number };
+  return result.count;
 }
 
 /**

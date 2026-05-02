@@ -1,16 +1,17 @@
 import Database from 'better-sqlite3';
 import { getAuditLogsForIssue } from '@/lib/services/issue-audit-logs';
 import { getDb } from '@/lib/db';
-import { findProjectById } from '@/lib/db/projects';
 import { findIssueById } from '@/lib/db/issues';
-import { findAuditLogsByIssueId } from '@/lib/db/issue-audit-logs';
-import { requireAuthenticatedUser } from '@/lib/services/auth';
-import { NotFoundError } from '@/lib/errors/helpers';
+import {
+  findAuditLogsByIssueIdPaginated,
+  countAuditLogsByIssueId,
+} from '@/lib/db/issue-audit-logs';
+import { requireProjectMember } from '@/lib/services/project-members';
+import { NotFoundError, ForbiddenError } from '@/lib/errors/helpers';
 import type { IssueAuditLog } from '@/lib/db/issue-audit-logs';
 
 // Mock all database dependencies
 jest.mock('@/lib/db');
-jest.mock('@/lib/db/projects');
 jest.mock('@/lib/db/issues');
 jest.mock('@/lib/db/issue-audit-logs');
 
@@ -23,12 +24,10 @@ jest.mock('@/lib/auth/session', () => ({
   })),
 }));
 
-jest.mock('@/lib/services/auth');
+jest.mock('@/lib/services/project-members');
 
 describe('Issue Audit Logs Service', () => {
   const mockDb = {} as Database.Database;
-  const mockUser = { id: 'user-1', email: 'user@example.com', name: 'Test User' };
-  const mockProject = { id: 'project-1', ownerId: 'user-1', name: 'Test Project' };
   const mockIssue = {
     id: 'issue-1',
     projectId: 'project-1',
@@ -48,59 +47,80 @@ describe('Issue Audit Logs Service', () => {
       toAssigneeId: null,
       createdAt: '2024-01-01T00:00:00.000Z',
     },
+    {
+      id: 'audit-2',
+      issueId: 'issue-1',
+      projectId: 'project-1',
+      actorId: 'user-1',
+      action: 'ISSUE_STATUS_CHANGED',
+      fromStatus: 'OPEN',
+      toStatus: 'CLOSED',
+      fromAssigneeId: null,
+      toAssigneeId: null,
+      createdAt: '2024-01-02T00:00:00.000Z',
+    },
   ];
 
   beforeEach(() => {
     jest.clearAllMocks();
     (getDb as jest.Mock).mockReturnValue(mockDb);
-    (requireAuthenticatedUser as jest.Mock).mockResolvedValue(mockUser);
   });
 
   describe('getAuditLogsForIssue', () => {
-    it('should return audit logs when user owns the project', async () => {
-      (findProjectById as jest.Mock).mockReturnValue(mockProject);
+    it('should return paginated audit logs when user is a project member', async () => {
+      (requireProjectMember as jest.Mock).mockResolvedValue(undefined);
       (findIssueById as jest.Mock).mockReturnValue(mockIssue);
-      (findAuditLogsByIssueId as jest.Mock).mockReturnValue(mockAuditLogs);
+      (countAuditLogsByIssueId as jest.Mock).mockReturnValue(2);
+      (findAuditLogsByIssueIdPaginated as jest.Mock).mockReturnValue(mockAuditLogs);
 
-      const result = await getAuditLogsForIssue('project-1', 'issue-1');
+      const result = await getAuditLogsForIssue('project-1', 'issue-1', 20, 0);
 
-      expect(result).toEqual(mockAuditLogs);
-      expect(requireAuthenticatedUser).toHaveBeenCalled();
-      expect(findProjectById).toHaveBeenCalledWith(mockDb, 'project-1');
+      expect(result).toEqual({
+        items: [
+          {
+            id: 'audit-1',
+            action: 'ISSUE_CREATED',
+            actorId: 'user-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+          },
+          {
+            id: 'audit-2',
+            action: 'ISSUE_STATUS_CHANGED',
+            actorId: 'user-1',
+            createdAt: '2024-01-02T00:00:00.000Z',
+          },
+        ],
+        total: 2,
+      });
+      expect(requireProjectMember).toHaveBeenCalledWith('project-1');
       expect(findIssueById).toHaveBeenCalledWith(mockDb, 'issue-1');
-      expect(findAuditLogsByIssueId).toHaveBeenCalledWith(mockDb, 'issue-1');
+      expect(countAuditLogsByIssueId).toHaveBeenCalledWith(mockDb, 'issue-1');
+      expect(findAuditLogsByIssueIdPaginated).toHaveBeenCalledWith(mockDb, 'issue-1', 20, 0);
     });
 
-    it('should throw UnauthenticatedError when user is not authenticated', async () => {
-      const mockError = new Error('Unauthenticated');
-      (requireAuthenticatedUser as jest.Mock).mockRejectedValue(mockError);
+    it('should use default pagination values when not provided', async () => {
+      (requireProjectMember as jest.Mock).mockResolvedValue(undefined);
+      (findIssueById as jest.Mock).mockReturnValue(mockIssue);
+      (countAuditLogsByIssueId as jest.Mock).mockReturnValue(2);
+      (findAuditLogsByIssueIdPaginated as jest.Mock).mockReturnValue(mockAuditLogs);
 
-      await expect(getAuditLogsForIssue('project-1', 'issue-1')).rejects.toThrow(
-        mockError
-      );
+      await getAuditLogsForIssue('project-1', 'issue-1');
+
+      expect(findAuditLogsByIssueIdPaginated).toHaveBeenCalledWith(mockDb, 'issue-1', 20, 0);
     });
 
-    it('should throw NotFoundError when project does not exist', async () => {
-      (findProjectById as jest.Mock).mockReturnValue(null);
+    it('should throw ForbiddenError when user is not a project member', async () => {
+      const mockError = new ForbiddenError('You do not have access to this project');
+      (requireProjectMember as jest.Mock).mockRejectedValue(mockError);
 
       await expect(getAuditLogsForIssue('project-1', 'issue-1')).rejects.toThrow(
-        NotFoundError
+        ForbiddenError
       );
-      expect(findProjectById).toHaveBeenCalledWith(mockDb, 'project-1');
-    });
-
-    it('should throw NotFoundError when user does not own the project', async () => {
-      const differentUser = { id: 'user-2', email: 'other@example.com', name: 'Other User' };
-      (requireAuthenticatedUser as jest.Mock).mockResolvedValue(differentUser);
-      (findProjectById as jest.Mock).mockReturnValue(mockProject);
-
-      await expect(getAuditLogsForIssue('project-1', 'issue-1')).rejects.toThrow(
-        NotFoundError
-      );
+      expect(requireProjectMember).toHaveBeenCalledWith('project-1');
     });
 
     it('should throw NotFoundError when issue does not exist', async () => {
-      (findProjectById as jest.Mock).mockReturnValue(mockProject);
+      (requireProjectMember as jest.Mock).mockResolvedValue(undefined);
       (findIssueById as jest.Mock).mockReturnValue(null);
 
       await expect(getAuditLogsForIssue('project-1', 'issue-1')).rejects.toThrow(
@@ -114,22 +134,47 @@ describe('Issue Audit Logs Service', () => {
         ...mockIssue,
         projectId: 'different-project',
       };
-      (findProjectById as jest.Mock).mockReturnValue(mockProject);
+      (requireProjectMember as jest.Mock).mockResolvedValue(undefined);
       (findIssueById as jest.Mock).mockReturnValue(issueFromDifferentProject);
 
       await expect(getAuditLogsForIssue('project-1', 'issue-1')).rejects.toThrow(
         NotFoundError
       );
+      expect(findIssueById).toHaveBeenCalledWith(mockDb, 'issue-1');
     });
 
-    it('should return empty array when no audit logs exist', async () => {
-      (findProjectById as jest.Mock).mockReturnValue(mockProject);
+    it('should return empty items array when no audit logs exist', async () => {
+      (requireProjectMember as jest.Mock).mockResolvedValue(undefined);
       (findIssueById as jest.Mock).mockReturnValue(mockIssue);
-      (findAuditLogsByIssueId as jest.Mock).mockReturnValue([]);
+      (countAuditLogsByIssueId as jest.Mock).mockReturnValue(0);
+      (findAuditLogsByIssueIdPaginated as jest.Mock).mockReturnValue([]);
 
-      const result = await getAuditLogsForIssue('project-1', 'issue-1');
+      const result = await getAuditLogsForIssue('project-1', 'issue-1', 20, 0);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({
+        items: [],
+        total: 0,
+      });
+    });
+
+    it('should transform audit logs to simplified output format', async () => {
+      (requireProjectMember as jest.Mock).mockResolvedValue(undefined);
+      (findIssueById as jest.Mock).mockReturnValue(mockIssue);
+      (countAuditLogsByIssueId as jest.Mock).mockReturnValue(1);
+      (findAuditLogsByIssueIdPaginated as jest.Mock).mockReturnValue([mockAuditLogs[0]]);
+
+      const result = await getAuditLogsForIssue('project-1', 'issue-1', 20, 0);
+
+      expect(result.items[0]).toEqual({
+        id: 'audit-1',
+        action: 'ISSUE_CREATED',
+        actorId: 'user-1',
+        createdAt: '2024-01-01T00:00:00.000Z',
+      });
+      expect(result.items[0]).not.toHaveProperty('fromStatus');
+      expect(result.items[0]).not.toHaveProperty('toStatus');
+      expect(result.items[0]).not.toHaveProperty('issueId');
+      expect(result.items[0]).not.toHaveProperty('projectId');
     });
   });
 });

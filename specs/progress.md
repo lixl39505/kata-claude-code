@@ -10,7 +10,7 @@
 - Project 基础能力（创建 / 列表 / 访问控制）
 - Issue 基础能力（创建 / 列表 / 详情）
 - Issue 状态流转（GitHub 风格二态模型 + 关闭原因）
-- Issue 审计日志（创建 / 状态变更记录）
+- Issue 审计日志（创建 / 状态变更记录 / 分页查询）
 - Issue 评论（创建 / 列表）
 - Issue 评论 @ 提及（识别 / 验证 / 保存）
 - Issue 指派（assignee）
@@ -27,6 +27,7 @@
 
 ## 当前任务
 
+- 审计日志查询（task-022-audit-log-query）- 已完成
 - 用户自定义视图（task-020-custom-views）- 已完成
 - Issue 乐观锁（task-021-optimistic-locking）- 已完成
 

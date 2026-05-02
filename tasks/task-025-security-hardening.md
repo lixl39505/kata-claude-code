@@ -171,7 +171,7 @@ API 响应不得包含 passwordHash、session token、内部 SQL 或 stack trace
 - [ ] 数据边界正确
 - [ ] 无越界功能实现
 - [ ] 所有逻辑可测试
-- [ ] 测试全部通过
+- [ ] 所有单元测试全部通过
 
 ## 后续动作
 

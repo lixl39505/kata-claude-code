@@ -134,6 +134,34 @@ export async function getIssueByIdForProject(
   return issue;
 }
 
+/**
+ * Get issue by ID with authorization check.
+ * This function is used by API routes that need to fetch issue data
+ * while verifying the user has access to the issue's project.
+ *
+ * @param issueId - The ID of the issue
+ * @returns The issue with projectId for further processing
+ * @throws {NotFoundError} If issue not found
+ * @throws {ForbiddenError} If user doesn't have access to the issue's project
+ */
+export async function getIssueByIdForUpdate(issueId: string): Promise<Issue & { projectId: string }> {
+  const db = getDb();
+  const user = await requireAuthenticatedUser();
+
+  // Find issue by ID
+  const issue = findIssueById(db, issueId);
+  if (!issue) {
+    throw new NotFoundError('Issue');
+  }
+
+  // Verify user is a member of the issue's project
+  if (!isProjectMemberDb(db, issue.projectId, user.id)) {
+    throw new ForbiddenError('You do not have access to this issue');
+  }
+
+  return issue;
+}
+
 // State transition matrix
 const VALID_TRANSITIONS: Record<IssueState, IssueState[]> = {
   OPEN: ['CLOSED'],
@@ -632,8 +660,11 @@ export async function batchUpdateIssues(data: BatchUpdateIssuesInput): Promise<{
 
 /**
  * Get all available preset view definitions
+ * Requires authentication to ensure consistent security policy
  */
-export function getPresetViews(): PresetViewDefinition[] {
+export async function getPresetViews(): Promise<PresetViewDefinition[]> {
+  // Ensure authentication for consistent security policy
+  await requireAuthenticatedUser();
   return Object.values(PRESET_VIEWS);
 }
 

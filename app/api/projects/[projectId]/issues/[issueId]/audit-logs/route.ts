@@ -31,23 +31,12 @@ export async function GET(
 
     // Parse query parameters for pagination
     const searchParams = request.nextUrl.searchParams;
-    const queryValidation = auditLogsQuerySchema.safeParse({
+    const validatedQuery = auditLogsQuerySchema.parse({
       limit: searchParams.get('limit'),
       offset: searchParams.get('offset'),
     });
 
-    if (!queryValidation.success) {
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid query parameters',
-          details: queryValidation.error.issues,
-        },
-        { status: 400 }
-      );
-    }
-
-    const { limit = 20, offset = 0 } = queryValidation.data;
+    const { limit = 20, offset = 0 } = validatedQuery;
 
     // Get audit logs for the issue
     const result = await getAuditLogsForIssue(

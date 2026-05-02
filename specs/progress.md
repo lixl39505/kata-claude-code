@@ -26,9 +26,11 @@
 - 用户自定义视图（保存筛选条件 / 创建视图 / 列表视图 / 删除视图 / 使用视图查询 Issue）
 - 数据库索引优化（Issue 查询索引 / Notification 查询索引 / AuditLog 查询索引 / 查询路径验证）
 - API 统一错误处理（统一错误响应结构 / 错误码映射 / 错误信息脱敏 / 完整测试覆盖）
+- 基础安全加固（统一认证授权检查 / 输入验证覆盖 / 敏感数据保护 / 架构规范修复）
 
 ## 当前任务
 
+- 基础安全加固（task-025-security-hardening）- 已完成
 - API 统一错误处理（task-024-api-error-consistency）- 已完成
 - 数据库索引优化（task-023-db-index-optimization）- 已完成
 - 审计日志查询（task-022-audit-log-query）- 已完成

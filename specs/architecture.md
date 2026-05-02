@@ -57,6 +57,20 @@
 - Zod Schema 是输入结构唯一来源
 - 校验必须在进入 service 前完成
 
+## 安全约束
+
+所有 API 端点必须满足以下安全约束：
+
+- 所有写操作必须要求登录（通过 `requireAuthenticatedUser()` 验证）
+- 所有资源访问必须在 Service 层完成最终权限校验
+- API 层不得直接信任 request 中的 userId / role / projectId
+- 禁止在 API 层直接访问数据库（必须通过 Service 层）
+- 所有外部输入必须经过 Zod 校验（路径参数、查询参数、请求体）
+- 未登录返回 UNAUTHENTICATED (401)
+- 权限不足返回 FORBIDDEN (403)
+- 非法输入返回 VALIDATION_ERROR (400)
+- 不得返回 passwordHash / session token / 内部错误细节 / SQL 细节
+
 ## 架构图
 
 C1 System Context:

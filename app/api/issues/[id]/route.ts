@@ -1,51 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/errors';
-import { updateIssue as updateIssueService } from '@/lib/services/issue';
+import { updateIssue as updateIssueService, getIssueByIdForUpdate } from '@/lib/services/issue';
 import { updateIssueSchema } from '@/lib/validators/issue';
-import { getDb } from '@/lib/db';
-import { findIssueById } from '@/lib/db/issues';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const db = getDb();
-
     // Get issueId from params
     const issueId = params.id;
 
-    // First, fetch the issue to get its projectId
-    const issue = findIssueById(db, issueId);
-    if (!issue) {
-      return NextResponse.json(
-        { code: 'NOT_FOUND', message: 'Issue not found' },
-        { status: 404 }
-      );
-    }
-
+    // First, fetch the issue using service layer (includes authorization)
+    const issue = await getIssueByIdForUpdate(issueId);
     const projectId = issue.projectId;
 
     // Parse request body
     const body = await request.json();
 
     // Validate input
-    const validationResult = updateIssueSchema.safeParse(body);
-    if (!validationResult.success) {
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Validation failed',
-          details: validationResult.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
-    }
-
-    const data = validationResult.data;
+    const validatedData = updateIssueSchema.parse(body);
 
     // Call service layer to update issue
-    const updatedIssue = await updateIssueService(projectId, issueId, data);
+    const updatedIssue = await updateIssueService(projectId, issueId, validatedData);
 
     return NextResponse.json({
       success: true,

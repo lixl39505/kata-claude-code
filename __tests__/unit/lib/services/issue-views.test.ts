@@ -52,8 +52,8 @@ describe('Issue Preset Views', () => {
   });
 
   describe('getPresetViews', () => {
-    it('should return all available preset views', () => {
-      const views = getPresetViews();
+    it('should return all available preset views', async () => {
+      const views = await getPresetViews();
 
       expect(views).toHaveLength(3);
       expect(views).toContainEqual(PRESET_VIEWS.MY_ISSUES);
@@ -61,8 +61,8 @@ describe('Issue Preset Views', () => {
       expect(views).toContainEqual(PRESET_VIEWS.CLOSED_ISSUES);
     });
 
-    it('should return view definitions with correct structure', () => {
-      const views = getPresetViews();
+    it('should return view definitions with correct structure', async () => {
+      const views = await getPresetViews();
 
       views.forEach((view) => {
         expect(view).toHaveProperty('key');

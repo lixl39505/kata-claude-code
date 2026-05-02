@@ -1,3 +1,10 @@
+// Mock Next.js before any imports that might trigger it
+jest.mock('next/server', () => ({
+  NextResponse: {
+    json: jest.fn(),
+  },
+}));
+
 describe('Smoke Test', () => {
   it('should run tests successfully', () => {
     expect(1 + 1).toBe(2);

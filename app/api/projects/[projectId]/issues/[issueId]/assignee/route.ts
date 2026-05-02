@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateIssueAssignee } from '@/lib/services/issue';
 import { updateIssueAssigneeSchema, projectIdSchema, issueIdSchema } from '@/lib/validators/issue';
-import { AppError } from '@/lib/errors/helpers';
-import { ZodError } from 'zod';
+import { handleApiError } from '@/lib/errors';
 
 export async function PATCH(
   request: NextRequest,
@@ -26,38 +25,6 @@ export async function PATCH(
 
     return NextResponse.json(issue);
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input',
-          details: error.issues,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'NOT_FOUND'
-            ? 404
-            : error.code === 'VALIDATION_ERROR'
-            ? 400
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in update issue assignee:', error);
-    return NextResponse.json(
-      {
-        code: 'INTERNAL',
-        message: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'updateIssueAssignee');
   }
 }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ZodError } from 'zod';
-import { AppError } from '@/lib/errors/helpers';
+import { handleApiError } from '@/lib/errors';
 import { getFiltersFromSavedView } from '@/lib/services/saved-view';
 import { listIssuesWithFilters } from '@/lib/services/issue';
 import { savedViewIssuesQuerySchema } from '@/lib/validators/saved-view';
@@ -38,38 +37,6 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof ZodError) {
-      const zodError = error as { issues?: unknown };
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid query parameters',
-          details: zodError.issues || error.toString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'FORBIDDEN'
-            ? 403
-            : error.code === 'NOT_FOUND'
-            ? 404
-            : error.code === 'VALIDATION_ERROR'
-            ? 400
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in get issues from saved view:', error);
-    return NextResponse.json(
-      { code: 'INTERNAL', message: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'getIssuesBySavedView');
   }
 }

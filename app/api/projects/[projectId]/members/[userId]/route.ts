@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { removeProjectMember } from '@/lib/services/project-members';
-import { AppError } from '@/lib/errors/helpers';
+import { handleApiError } from '@/lib/errors';
 
 /**
  * DELETE /api/projects/:projectId/members/:userId
@@ -18,27 +18,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'FORBIDDEN'
-            ? 403
-            : error.code === 'VALIDATION_ERROR'
-            ? 400
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in remove project member:', error);
-    return NextResponse.json(
-      {
-        code: 'INTERNAL',
-        message: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'removeProjectMember');
   }
 }

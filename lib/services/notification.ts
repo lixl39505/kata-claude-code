@@ -10,7 +10,7 @@ import {
   type NotificationData,
 } from '@/lib/db/notifications';
 import { requireAuthenticatedUser } from './auth';
-import { NotFoundError, ForbiddenError } from '@/lib/errors/helpers';
+import { NotFoundError, ForbiddenError } from '@/lib/errors';
 import type { ListNotificationsInput } from '@/lib/validators/notification';
 
 export interface Notification {

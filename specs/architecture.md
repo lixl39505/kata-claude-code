@@ -317,6 +317,9 @@ details?: object
 - 必须使用明确错误码
 - 不得泄露内部实现细节
 - 错误必须可预测、可测试
+- 所有 API 端点必须使用统一的错误处理函数 `handleApiError()`
+- 错误处理逻辑集中在 `lib/errors/api-handler.ts`
+- HTTP 状态码映射：401（UNAUTHENTICATED）、403（FORBIDDEN）、400（VALIDATION_ERROR/INVALID_STATE_TRANSITION）、404（NOT_FOUND）、409（CONFLICT）、500（INTERNAL）
 
 ## 数据规则
 

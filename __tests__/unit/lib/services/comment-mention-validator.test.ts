@@ -1,5 +1,5 @@
 import { validateAndResolveMentions } from '@/lib/services/comment-mention-validator';
-import { ValidationError } from '@/lib/errors/helpers';
+import { ValidationError } from '@/lib/errors';
 import { findProjectMembersWithDetails } from '@/lib/db/project-members';
 import Database from 'better-sqlite3';
 

@@ -25,9 +25,11 @@
 - 通知未读计数与批量已读（未读数量查询 / 批量标记已读 / 全部标记已读）
 - 用户自定义视图（保存筛选条件 / 创建视图 / 列表视图 / 删除视图 / 使用视图查询 Issue）
 - 数据库索引优化（Issue 查询索引 / Notification 查询索引 / AuditLog 查询索引 / 查询路径验证）
+- API 统一错误处理（统一错误响应结构 / 错误码映射 / 错误信息脱敏 / 完整测试覆盖）
 
 ## 当前任务
 
+- API 统一错误处理（task-024-api-error-consistency）- 已完成
 - 数据库索引优化（task-023-db-index-optimization）- 已完成
 - 审计日志查询（task-022-audit-log-query）- 已完成
 - 用户自定义视图（task-020-custom-views）- 已完成

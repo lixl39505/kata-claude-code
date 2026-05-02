@@ -12,7 +12,7 @@ import {
   NotFoundError,
   ConflictError,
   ForbiddenError,
-} from '@/lib/errors/helpers';
+} from '@/lib/errors';
 import type { CreateProjectInput } from '@/lib/validators/project';
 
 // Mock dependencies

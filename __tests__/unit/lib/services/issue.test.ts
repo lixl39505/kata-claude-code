@@ -13,7 +13,7 @@ import {
   NotFoundError,
   InvalidStateTransitionError,
   ForbiddenError,
-} from '@/lib/errors/helpers';
+} from '@/lib/errors';
 import type { CreateIssueInput, UpdateIssueStateInput, UpdateIssueAssigneeInput } from '@/lib/validators/issue';
 
 // Mock dependencies

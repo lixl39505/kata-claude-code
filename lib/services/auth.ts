@@ -13,7 +13,7 @@ import {
 import {
   UnauthenticatedError,
   ConflictError,
-} from '@/lib/errors/helpers';
+} from '@/lib/errors';
 import type { RegisterInput } from '@/lib/validators/auth';
 
 export interface User {

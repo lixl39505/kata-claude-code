@@ -8,7 +8,7 @@ import {
   deleteSavedViewByIdAndUserId,
 } from '@/lib/db/saved-views';
 import { requireAuthenticatedUser } from './auth';
-import { NotFoundError, ForbiddenError, ValidationError } from '@/lib/errors/helpers';
+import { NotFoundError, ForbiddenError, ValidationError } from '@/lib/errors';
 import type { CreateSavedViewInput, ListSavedViewsInput } from '@/lib/validators/saved-view';
 import type { IssueFiltersInput } from '@/lib/validators/issue';
 

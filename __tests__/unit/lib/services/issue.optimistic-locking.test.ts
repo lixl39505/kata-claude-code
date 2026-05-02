@@ -7,7 +7,7 @@ import { getDb } from '@/lib/db';
 import { requireAuthenticatedUser } from '@/lib/services/auth';
 import {
   ConflictError,
-} from '@/lib/errors/helpers';
+} from '@/lib/errors';
 import type { UpdateIssueInput, UpdateIssueStateInput, UpdateIssueAssigneeInput } from '@/lib/validators/issue';
 
 // Mock dependencies

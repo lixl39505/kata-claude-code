@@ -5,7 +5,7 @@ import {
   NotFoundError,
   ForbiddenError,
   InvalidStateTransitionError,
-} from '@/lib/errors/helpers';
+} from '@/lib/errors';
 import type { BatchUpdateIssuesInput } from '@/lib/validators/issue';
 
 // Mock dependencies

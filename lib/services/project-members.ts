@@ -19,7 +19,7 @@ import {
   NotFoundError,
   ForbiddenError,
   ValidationError,
-} from '@/lib/errors/helpers';
+} from '@/lib/errors';
 import type { AddProjectMemberInput } from '@/lib/validators/project-members';
 
 /**

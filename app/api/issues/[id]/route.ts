@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ZodError } from 'zod';
+import { handleApiError } from '@/lib/errors';
 import { updateIssue as updateIssueService } from '@/lib/services/issue';
 import { updateIssueSchema } from '@/lib/validators/issue';
-import { AppError } from '@/lib/errors/helpers';
 import { getDb } from '@/lib/db';
 import { findIssueById } from '@/lib/db/issues';
 
@@ -53,39 +52,6 @@ export async function PATCH(
       data: updatedIssue,
     });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Validation failed',
-          details: error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'FORBIDDEN'
-            ? 403
-            : error.code === 'NOT_FOUND'
-            ? 404
-            : error.code === 'CONFLICT'
-            ? 409
-            : error.code === 'VALIDATION_ERROR'
-            ? 400
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in update issue:', error);
-    return NextResponse.json(
-      { code: 'INTERNAL', message: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'updateIssue');
   }
 }

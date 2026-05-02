@@ -4,8 +4,7 @@ import {
   listIssuesForProject,
 } from '@/lib/services/issue';
 import { createIssueSchema, projectIdSchema } from '@/lib/validators/issue';
-import { AppError } from '@/lib/errors/helpers';
-import { ZodError } from 'zod';
+import { handleApiError } from '@/lib/errors';
 
 export async function POST(
   request: NextRequest,
@@ -29,40 +28,7 @@ export async function POST(
 
     return NextResponse.json(issue, { status: 201 });
   } catch (error) {
-    if (error instanceof ZodError) {
-      const zodError = error as { issues?: unknown };
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input',
-          details: zodError.issues || error.toString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'NOT_FOUND'
-            ? 404
-            : error.code === 'CONFLICT'
-            ? 409
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in create issue:', error);
-    return NextResponse.json(
-      {
-        code: 'INTERNAL',
-        message: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'createIssue');
   }
 }
 
@@ -80,37 +46,6 @@ export async function GET(
 
     return NextResponse.json(issues);
   } catch (error) {
-    if (error instanceof ZodError) {
-      const zodError = error as { issues?: unknown };
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input',
-          details: zodError.issues || error.toString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'NOT_FOUND'
-            ? 404
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in list issues:', error);
-    return NextResponse.json(
-      {
-        code: 'INTERNAL',
-        message: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'listIssues');
   }
 }

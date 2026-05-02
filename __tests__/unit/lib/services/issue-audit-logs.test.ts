@@ -7,7 +7,7 @@ import {
   countAuditLogsByIssueId,
 } from '@/lib/db/issue-audit-logs';
 import { requireProjectMember } from '@/lib/services/project-members';
-import { NotFoundError, ForbiddenError } from '@/lib/errors/helpers';
+import { NotFoundError, ForbiddenError } from '@/lib/errors';
 import type { IssueAuditLog } from '@/lib/db/issue-audit-logs';
 
 // Mock all database dependencies

@@ -2,7 +2,7 @@
 import { GET } from '@/app/api/issues/views/[key]/route';
 import { getPresetViewResults } from '@/lib/services/issue';
 import type { NextRequest } from 'next/server';
-import { UnauthenticatedError, ForbiddenError } from '@/lib/errors/helpers';
+import { UnauthenticatedError, ForbiddenError } from '@/lib/errors';
 
 // Mock Next.js server dependencies
 const mockRequest = (url: string): NextRequest => ({
@@ -125,7 +125,7 @@ describe('Issue Views by Key API', () => {
 
       expect(response.status).toBe(400);
       expect(data.code).toBe('VALIDATION_ERROR');
-      expect(data.message).toContain('Invalid view parameters');
+      expect(data.message).toBe('Invalid input');
     });
 
     it('should return 400 for invalid pagination parameters', async () => {

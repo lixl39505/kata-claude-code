@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ZodError } from 'zod';
-import { AppError } from '@/lib/errors/helpers';
 import { getPresetViewResults } from '@/lib/services/issue';
 import { presetViewParamsSchema } from '@/lib/validators/issue';
+import { handleApiError } from '@/lib/errors';
 
 // GET /api/issues/views/:key - Get preset view results by key
 export async function GET(
@@ -28,38 +27,6 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof ZodError) {
-      const zodError = error as { issues?: unknown };
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid view parameters',
-          details: zodError.issues || error.toString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'FORBIDDEN'
-            ? 403
-            : error.code === 'NOT_FOUND'
-            ? 404
-            : error.code === 'VALIDATION_ERROR'
-            ? 400
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in get preset view results:', error);
-    return NextResponse.json(
-      { code: 'INTERNAL', message: 'Internal server error' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'getPresetViewResults');
   }
 }

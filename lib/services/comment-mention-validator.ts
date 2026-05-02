@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { findProjectMembersWithDetails } from '@/lib/db/project-members';
 import { getEmailLocalPart } from '@/lib/db/users';
-import { ValidationError } from '@/lib/errors/helpers';
+import { ValidationError } from '@/lib/errors';
 
 export interface MentionedUser {
   userId: string;

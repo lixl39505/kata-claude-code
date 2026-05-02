@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 import { register, login, logout, getCurrentUser, requireAuthenticatedUser } from '@/lib/services/auth';
-import { ConflictError, UnauthenticatedError } from '@/lib/errors/helpers';
+import { ConflictError, UnauthenticatedError } from '@/lib/errors';
 
 // Mock all dependencies
 jest.mock('@/lib/db', () => ({

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuditLogsForIssue } from '@/lib/services/issue-audit-logs';
 import { projectIdSchema, issueIdSchema } from '@/lib/validators/issue';
-import { AppError } from '@/lib/errors/helpers';
-import { ZodError } from 'zod';
+import { handleApiError } from '@/lib/errors';
 import { z } from 'zod';
 
 // Query parameters schema for pagination
@@ -60,41 +59,6 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error) {
-    // Handle Zod validation errors
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input',
-          details: error.issues,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Handle application errors
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'FORBIDDEN'
-            ? 403
-            : error.code === 'NOT_FOUND'
-            ? 404
-            : 500,
-      });
-    }
-
-    // Handle unexpected errors
-    console.error('Unexpected error in get audit logs:', error);
-    return NextResponse.json(
-      {
-        code: 'INTERNAL',
-        message: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'getIssueAuditLogs');
   }
 }

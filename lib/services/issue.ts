@@ -14,7 +14,7 @@ import { isProjectMember as isProjectMemberDb } from '@/lib/db/project-members';
 import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import { createAssigneeChangedNotification } from './notification';
-import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError, ConflictError } from '@/lib/errors/helpers';
+import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError, ConflictError } from '@/lib/errors';
 import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, UpdateIssueInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition, CloseReasonStatsInput, CloseReasonStatsResult, DashboardStatsInput, DashboardStatsResult } from '@/lib/validators/issue';
 import { PRESET_VIEWS } from '@/lib/validators/issue';
 

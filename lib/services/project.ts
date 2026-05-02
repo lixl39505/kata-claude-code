@@ -7,7 +7,7 @@ import {
 } from '@/lib/db/projects';
 import { addProjectMember as addProjectMemberDb, findProjectIdsByUserId } from '@/lib/db/project-members';
 import { requireAuthenticatedUser } from './auth';
-import { ConflictError, NotFoundError, ForbiddenError } from '@/lib/errors/helpers';
+import { ConflictError, NotFoundError, ForbiddenError } from '@/lib/errors';
 import type { CreateProjectInput } from '@/lib/validators/project';
 
 export interface Project {

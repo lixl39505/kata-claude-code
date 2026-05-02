@@ -7,7 +7,7 @@ import { createCommentMentions, findMentionsByCommentId } from '@/lib/db/issue-c
 import { findProjectById } from '@/lib/db/projects';
 import { findIssueById } from '@/lib/db/issues';
 import { requireAuthenticatedUser } from '@/lib/services/auth';
-import { UnauthenticatedError, ValidationError } from '@/lib/errors/helpers';
+import { UnauthenticatedError, ValidationError } from '@/lib/errors';
 import type { CreateCommentInput } from '@/lib/validators/issue-comment';
 import Database from 'better-sqlite3';
 

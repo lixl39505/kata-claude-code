@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addProjectMember, listProjectMembers } from '@/lib/services/project-members';
 import { addProjectMemberSchema } from '@/lib/validators/project-members';
-import { AppError } from '@/lib/errors/helpers';
-import { ZodError } from 'zod';
+import { handleApiError } from '@/lib/errors';
 
 /**
  * GET /api/projects/:projectId/members
@@ -20,21 +19,7 @@ export async function GET(
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status: error.code === 'UNAUTHENTICATED' ? 401 : error.code === 'FORBIDDEN' ? 403 : 500,
-      });
-    }
-
-    console.error('Unexpected error in list project members:', error);
-    return NextResponse.json(
-      {
-        code: 'INTERNAL',
-        message: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'listProjectMembers');
   }
 }
 
@@ -60,39 +45,6 @@ export async function POST(
 
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
-    if (error instanceof ZodError) {
-      const zodError = error as { issues?: unknown };
-      return NextResponse.json(
-        {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input',
-          details: zodError.issues || error.toString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof AppError) {
-      const apiError = error.toApiError();
-      return NextResponse.json(apiError, {
-        status:
-          error.code === 'UNAUTHENTICATED'
-            ? 401
-            : error.code === 'FORBIDDEN'
-            ? 403
-            : error.code === 'CONFLICT'
-            ? 409
-            : 500,
-      });
-    }
-
-    console.error('Unexpected error in add project member:', error);
-    return NextResponse.json(
-      {
-        code: 'INTERNAL',
-        message: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, 'addProjectMember');
   }
 }

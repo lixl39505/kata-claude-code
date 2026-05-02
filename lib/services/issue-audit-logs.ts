@@ -5,7 +5,7 @@ import {
 } from '@/lib/db/issue-audit-logs';
 import { findIssueById } from '@/lib/db/issues';
 import { requireProjectMember } from './project-members';
-import { NotFoundError } from '@/lib/errors/helpers';
+import { NotFoundError } from '@/lib/errors';
 
 /**
  * Get audit logs for a specific issue with pagination.

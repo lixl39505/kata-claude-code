@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS issues (
 -- Indexes for project lookups
 CREATE INDEX IF NOT EXISTS idx_issues_project_id ON issues(project_id);
 CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status);
+CREATE INDEX IF NOT EXISTS idx_issues_created_at ON issues(created_at);
 
 -- Issue audit logs table
 CREATE TABLE IF NOT EXISTS issue_audit_logs (

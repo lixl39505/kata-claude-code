@@ -324,6 +324,11 @@ details?: object
 - 所有数据库操作集中在 lib/db
 - 禁止在 UI 或 API 中直接执行 SQL
 - 数据迁移必须可重复执行
+- 索引策略：
+  - Issue 表：projectId, status, assigneeId, createdAt
+  - Notification 表：(userId, isRead), createdAt
+  - AuditLog 表：issueId, createdAt
+- 索引必须通过 migration 创建，使用 IF NOT EXISTS 保证幂等性
 
 ## 核心实体
 

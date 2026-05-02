@@ -24,9 +24,11 @@
 - 基础通知能力（mention / assignee 变更通知 / 已读标记）
 - 通知未读计数与批量已读（未读数量查询 / 批量标记已读 / 全部标记已读）
 - 用户自定义视图（保存筛选条件 / 创建视图 / 列表视图 / 删除视图 / 使用视图查询 Issue）
+- 数据库索引优化（Issue 查询索引 / Notification 查询索引 / AuditLog 查询索引 / 查询路径验证）
 
 ## 当前任务
 
+- 数据库索引优化（task-023-db-index-optimization）- 已完成
 - 审计日志查询（task-022-audit-log-query）- 已完成
 - 用户自定义视图（task-020-custom-views）- 已完成
 - Issue 乐观锁（task-021-optimistic-locking）- 已完成

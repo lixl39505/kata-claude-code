@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/project-members';
 import { findUserById } from '@/lib/db/users';
 import { findProjectById } from '@/lib/db/projects';
+import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
 import {
   ConflictError,
@@ -102,6 +103,13 @@ export async function addProjectMember(
       role: data.role,
     });
 
+    // Write audit log for adding project member
+    createIssueAuditLog(txnDb, {
+      projectId: projectId,
+      actorId: currentUser.id,
+      action: 'PROJECT_MEMBER_ADDED',
+    });
+
     // Get member with user details for response
     const membersWithDetails = findProjectMembersWithDetails(txnDb, projectId);
     const newMemberWithDetails = membersWithDetails.find(m => m.userId === data.userId);
@@ -160,6 +168,13 @@ export async function removeProjectMember(projectId: string, userId: string): Pr
     if (!removed) {
       throw new Error('Failed to remove member');
     }
+
+    // Write audit log for removing project member
+    createIssueAuditLog(txnDb, {
+      projectId: projectId,
+      actorId: currentUser.id,
+      action: 'PROJECT_MEMBER_REMOVED',
+    });
   });
 
   return { success: true };

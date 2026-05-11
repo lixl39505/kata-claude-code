@@ -1,4 +1,5 @@
 import { getDb } from '@/lib/db';
+import Database from 'better-sqlite3';
 import {
   findNotificationsWithFilters,
   countNotificationsWithFilters,
@@ -6,6 +7,7 @@ import {
   markNotificationAsRead as markNotificationAsReadDb,
   markAllNotificationsAsRead,
   markNotificationsAsReadByIds,
+  createNotifications as createNotificationsDb,
   type NotificationType,
   type NotificationData,
 } from '@/lib/db/notifications';
@@ -163,15 +165,17 @@ export async function markNotificationsAsRead(
  * @param issueId - The ID of the issue
  * @param commentId - The ID of the comment
  * @param projectId - The ID of the project
+ * @param db - Optional database instance (for transaction support)
  * @returns Array of created notifications
  */
 export function createMentionNotifications(
   userIds: string[],
   issueId: string,
   commentId: string,
-  projectId: string
+  projectId: string,
+  db?: Database.Database
 ): Notification[] {
-  const db = getDb();
+  const database = db || getDb();
 
   if (userIds.length === 0) {
     return [];
@@ -187,7 +191,7 @@ export function createMentionNotifications(
   }));
 
   // Create notifications in batch
-  return createNotifications(db, notificationData);
+  return createNotificationsDb(database, notificationData);
 }
 
 /**
@@ -197,18 +201,20 @@ export function createMentionNotifications(
  * @param assigneeId - The ID of the new assignee
  * @param issueId - The ID of the issue
  * @param projectId - The ID of the project
+ * @param db - Optional database instance (for transaction support)
  * @returns The created notification or null if assigneeId is null
  */
 export function createAssigneeChangedNotification(
   assigneeId: string | null,
   issueId: string,
-  projectId: string
+  projectId: string,
+  db?: Database.Database
 ): Notification | null {
   if (!assigneeId) {
     return null;
   }
 
-  const db = getDb();
+  const database = db || getDb();
 
   const notificationData: NotificationData = {
     userId: assigneeId,
@@ -217,22 +223,6 @@ export function createAssigneeChangedNotification(
     projectId,
   };
 
-  const notifications = createNotifications(db, [notificationData]);
+  const notifications = createNotificationsDb(database, [notificationData]);
   return notifications[0] || null;
-}
-
-/**
- * Internal function to create notifications in batch.
- * This is a wrapper around the DB function for service-level usage.
- *
- * @param db - The database instance
- * @param notifications - Array of notification data to create
- * @returns Array of created notifications
- */
-function createNotifications(
-  db: Parameters<typeof import('@/lib/db/notifications')['createNotifications']>[0],
-  notifications: NotificationData[]
-): ReturnType<typeof import('@/lib/db/notifications')['createNotifications']> {
-  const { createNotifications: dbCreateNotifications } = require('@/lib/db/notifications');
-  return dbCreateNotifications(db, notifications);
 }

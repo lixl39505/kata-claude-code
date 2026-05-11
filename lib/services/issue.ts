@@ -328,7 +328,7 @@ export async function updateIssueAssignee(
       // Create notification for the new assignee if assignee actually changed
       // Only notify when assignee is different from current assignee
       if (data.assigneeId !== null && data.assigneeId !== currentIssue.assigneeId) {
-        createAssigneeChangedNotification(data.assigneeId, issueId, projectId);
+        createAssigneeChangedNotification(data.assigneeId, issueId, projectId, txnDb);
       }
 
       return updatedIssue;
@@ -406,14 +406,21 @@ export async function updateIssue(
       const titleChanged = data.title !== undefined && data.title !== currentIssue.title;
       const descriptionChanged = data.description !== undefined && data.description !== currentIssue.description;
 
-      if (titleChanged || descriptionChanged) {
+      if (titleChanged) {
         createIssueAuditLog(txnDb, {
           issueId: issueId,
           projectId: projectId,
           actorId: user.id,
-          action: 'ISSUE_STATUS_CHANGED', // Using existing action type for simplicity
-          fromStatus: null,
-          toStatus: null,
+          action: 'ISSUE_TITLE_CHANGED',
+        });
+      }
+
+      if (descriptionChanged) {
+        createIssueAuditLog(txnDb, {
+          issueId: issueId,
+          projectId: projectId,
+          actorId: user.id,
+          action: 'ISSUE_DESCRIPTION_CHANGED',
         });
       }
 

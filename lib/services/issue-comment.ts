@@ -1,17 +1,19 @@
 import { getDb } from '@/lib/db';
-import { createComment, findCommentsByIssueId } from '@/lib/db/issue-comments';
+import { createComment, findCommentsByIssueId, findCommentById, deleteComment as deleteCommentDb } from '@/lib/db/issue-comments';
 import {
   createCommentMentions,
   findMentionsByCommentId,
 } from '@/lib/db/issue-comment-mentions';
 import { findProjectById } from '@/lib/db/projects';
 import { findIssueById } from '@/lib/db/issues';
+import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 import { requireAuthenticatedUser } from './auth';
-import { NotFoundError } from '@/lib/errors';
+import { NotFoundError, ForbiddenError } from '@/lib/errors';
 import { parseMentions } from './comment-mention-parser';
 import { validateAndResolveMentions } from './comment-mention-validator';
 import { executeInTransactionAsync } from '@/lib/db/transaction';
 import { createMentionNotifications } from './notification';
+import { isProjectOwner } from './project-members';
 import type { CreateCommentInput } from '@/lib/validators/issue-comment';
 
 export interface IssueComment {
@@ -101,9 +103,9 @@ export async function createCommentInIssue(
 
       createCommentMentions(transactionDb, mentionData);
 
-      // Create notifications for mentioned users
+      // Create notifications for mentioned users (pass transaction db for consistency)
       const mentionedUserIds = mentionedUsers.map((u) => u.userId);
-      createMentionNotifications(mentionedUserIds, issueId, comment.id, projectId);
+      createMentionNotifications(mentionedUserIds, issueId, comment.id, projectId, transactionDb);
     }
 
     return comment;
@@ -163,4 +165,74 @@ export async function listCommentsForIssue(
   });
 
   return commentsWithMentions;
+}
+
+/**
+ * Delete a comment from an issue.
+ *
+ * This function:
+ * 1. Verifies the user has permission to delete the comment (author or project owner)
+ * 2. Deletes the comment in a transaction (mentions are cascade deleted)
+ * 3. Writes an audit log
+ *
+ * @param projectId - The ID of the project
+ * @param issueId - The ID of the issue
+ * @param commentId - The ID of the comment to delete
+ * @returns Success indicator
+ * @throws {UnauthenticatedError} If user is not authenticated
+ * @throws {NotFoundError} If project, issue, or comment is not found
+ * @throws {ForbiddenError} If user doesn't have permission to delete the comment
+ */
+export async function deleteCommentFromIssue(
+  projectId: string,
+  issueId: string,
+  commentId: string
+): Promise<{ success: true }> {
+  const db = getDb();
+
+  // Get current user
+  const user = await requireAuthenticatedUser();
+
+  // Verify project exists and user owns it
+  const project = findProjectById(db, projectId);
+  if (!project || project.ownerId !== user.id) {
+    throw new NotFoundError('Project');
+  }
+
+  // Verify issue exists and belongs to project
+  const issue = findIssueById(db, issueId);
+  if (!issue || issue.projectId !== projectId) {
+    throw new NotFoundError('Issue');
+  }
+
+  // Verify comment exists and belongs to issue
+  const comment = findCommentById(db, commentId);
+  if (!comment || comment.issueId !== issueId) {
+    throw new NotFoundError('Comment');
+  }
+
+  // Check if user is the comment author or a project owner
+  const isOwner = isProjectOwner(projectId, user.id);
+  if (comment.authorId !== user.id && !isOwner) {
+    throw new ForbiddenError('You do not have permission to delete this comment');
+  }
+
+  // Use transaction to ensure atomicity of comment deletion and audit logging
+  executeInTransactionAsync(db, (txnDb) => {
+    // Delete comment (mentions will be cascade deleted)
+    const deleted = deleteCommentDb(txnDb, commentId);
+    if (!deleted) {
+      throw new Error('Failed to delete comment');
+    }
+
+    // Write audit log for comment deletion
+    createIssueAuditLog(txnDb, {
+      issueId: issueId,
+      projectId: projectId,
+      actorId: user.id,
+      action: 'ISSUE_COMMENT_DELETED',
+    });
+  });
+
+  return { success: true };
 }

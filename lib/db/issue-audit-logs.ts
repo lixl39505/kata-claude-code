@@ -1,12 +1,22 @@
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 
+export type AuditLogAction =
+  | 'ISSUE_CREATED'
+  | 'ISSUE_STATUS_CHANGED'
+  | 'ISSUE_ASSIGNEE_CHANGED'
+  | 'ISSUE_TITLE_CHANGED'
+  | 'ISSUE_DESCRIPTION_CHANGED'
+  | 'PROJECT_MEMBER_ADDED'
+  | 'PROJECT_MEMBER_REMOVED'
+  | 'ISSUE_COMMENT_DELETED';
+
 export interface IssueAuditLog {
   id: string;
   issueId: string;
   projectId: string;
   actorId: string;
-  action: 'ISSUE_CREATED' | 'ISSUE_STATUS_CHANGED' | 'ISSUE_ASSIGNEE_CHANGED';
+  action: AuditLogAction;
   fromStatus: string | null;
   toStatus: string | null;
   fromAssigneeId: string | null;
@@ -15,12 +25,12 @@ export interface IssueAuditLog {
 }
 
 export interface IssueAuditLogData {
-  issueId: string;
+  issueId?: string | null;
   projectId: string;
   actorId: string;
-  action: 'ISSUE_CREATED' | 'ISSUE_STATUS_CHANGED' | 'ISSUE_ASSIGNEE_CHANGED';
-  fromStatus: string | null;
-  toStatus: string | null;
+  action: AuditLogAction;
+  fromStatus?: string | null;
+  toStatus?: string | null;
   fromAssigneeId?: string | null;
   toAssigneeId?: string | null;
 }
@@ -44,7 +54,7 @@ export function createIssueAuditLog(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  stmt.run(id, data.issueId, data.projectId, data.actorId, data.action, data.fromStatus, data.toStatus, data.fromAssigneeId ?? null, data.toAssigneeId ?? null, createdAt);
+  stmt.run(id, data.issueId ?? null, data.projectId, data.actorId, data.action, data.fromStatus ?? null, data.toStatus ?? null, data.fromAssigneeId ?? null, data.toAssigneeId ?? null, createdAt);
 
   return {
     id,

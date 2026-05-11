@@ -48,6 +48,10 @@ jest.mock('@/lib/db/project-members', () => ({
   findProjectIdsByUserId: jest.fn(),
 }));
 
+jest.mock('@/lib/db/issue-audit-logs', () => ({
+  createIssueAuditLog: jest.fn(),
+}));
+
 const mockGetDb = getDb as jest.MockedFunction<typeof getDb>;
 const mockRequireAuthenticatedUser = requireAuthenticatedUser as jest.MockedFunction<typeof requireAuthenticatedUser>;
 
@@ -62,11 +66,13 @@ import {
   isProjectOwner as isProjectOwnerDb,
   findUnclosedIssuesByAssigneeInProject,
 } from '@/lib/db/project-members';
+import { createIssueAuditLog } from '@/lib/db/issue-audit-logs';
 
 const mockFindProjectById = findProjectById as jest.MockedFunction<typeof findProjectById>;
 const mockFindUserById = findUserById as jest.MockedFunction<typeof findUserById>;
 const mockRemoveProjectMemberDb = removeProjectMemberDb as jest.MockedFunction<typeof removeProjectMemberDb>;
 const mockFindProjectMember = findProjectMember as jest.MockedFunction<typeof findProjectMember>;
+const mockCreateIssueAuditLog = createIssueAuditLog as jest.MockedFunction<typeof createIssueAuditLog>;
 const mockFindProjectMembersWithDetails = findProjectMembersWithDetails as jest.MockedFunction<typeof findProjectMembersWithDetails>;
 const mockCountProjectOwners = countProjectOwners as jest.MockedFunction<typeof countProjectOwners>;
 const mockIsProjectMemberDb = isProjectMemberDb as jest.MockedFunction<typeof isProjectMemberDb>;

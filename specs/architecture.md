@@ -291,7 +291,8 @@ flowchart TB
 - 创建 Issue
 - 状态变更
 - 指派变更
-- 标题或描述修改
+- 标题修改
+- 描述修改
 - 删除评论
 - 项目归档
 - 角色变更
@@ -299,12 +300,50 @@ flowchart TB
 - 移除 Project 成员
 - 批量 Issue 操作（状态 / 指派）
 
+审计日志支持的操作类型：
+- ISSUE_CREATED
+- ISSUE_STATUS_CHANGED
+- ISSUE_ASSIGNEE_CHANGED
+- ISSUE_TITLE_CHANGED
+- ISSUE_DESCRIPTION_CHANGED
+- PROJECT_MEMBER_ADDED
+- PROJECT_MEMBER_REMOVED
+- ISSUE_COMMENT_DELETED
+
 规则：
 
 - 主写入与审计写入必须在同一事务; 主操作成功等于审计日志存在; 主操作失败不得写入审计日志
 - 审计日志只允许追加
 - 审计日志不得修改或删除
 - 审计日志必须在 service 层写入; 禁止在 API 层拼接或写入审计数据
+- 审计日志支持 project-level 操作（issue_id 可为空）和 issue-level 操作（issue_id 必须存在）
+
+## 事务一致性
+
+所有关键写操作必须满足事务一致性要求：
+
+事务覆盖范围：
+- 创建 Issue + 审计日志
+- 更新 Issue 状态 + 审计日志
+- 更新 Issue assignee + 审计日志 + 通知
+- 创建 Issue 评论 + mention 记录 + mention 通知
+- 删除 Issue 评论 + mention 清理（级联）+ 审计日志
+- 添加 Project 成员 + 审计日志
+- 移除 Project 成员 + 审计日志
+- 批量更新 Issue + 每条审计记录
+
+事务规则：
+- 主业务写入与副作用写入（审计日志、通知、mention）必须在同一事务
+- 任意一步失败，整个操作必须回滚
+- 事务边界必须清晰集中，避免嵌套事务造成不可预测行为
+- 批量操作必须整体成功或整体失败，不允许静默部分成功
+- SQLite 不支持嵌套事务，调用 executeInTransaction 会抛出错误
+
+错误处理规则：
+- 业务错误应正常回滚并返回对应错误码
+- 未预期错误应回滚并返回 INTERNAL
+- 不得泄露 SQL 或 stack trace
+- 事务失败后必须返回统一错误结构
 
 ## 错误模型
 

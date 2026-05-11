@@ -69,3 +69,45 @@ export function findCommentsByIssueId(
 
   return stmt.all(issueId) as IssueComment[];
 }
+
+/**
+ * Find a specific comment by ID.
+ *
+ * @param db - The database instance
+ * @param commentId - The ID of the comment
+ * @returns The comment or null if not found
+ */
+export function findCommentById(
+  db: Database.Database,
+  commentId: string
+): IssueComment | null {
+  const stmt = db.prepare(`
+    SELECT id, issue_id as issueId, project_id as projectId, author_id as authorId,
+           content, created_at as createdAt
+    FROM issue_comments
+    WHERE id = ?
+  `);
+
+  const row = stmt.get(commentId) as IssueComment | undefined;
+  return row || null;
+}
+
+/**
+ * Delete a comment by ID.
+ *
+ * @param db - The database instance
+ * @param commentId - The ID of the comment to delete
+ * @returns true if the comment was deleted, false if not found
+ */
+export function deleteComment(
+  db: Database.Database,
+  commentId: string
+): boolean {
+  const stmt = db.prepare(`
+    DELETE FROM issue_comments
+    WHERE id = ?
+  `);
+
+  const result = stmt.run(commentId);
+  return result.changes > 0;
+}

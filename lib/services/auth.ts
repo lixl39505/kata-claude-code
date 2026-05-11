@@ -15,6 +15,7 @@ import {
   ConflictError,
 } from '@/lib/errors';
 import type { RegisterInput } from '@/lib/validators/auth';
+import { logInfo, getRequestId } from '@/lib/logger';
 
 export interface User {
   id: string;
@@ -77,11 +78,29 @@ export async function login(email: string, password: string): Promise<User> {
   // Create session
   await createSession(user.id);
 
+  // Log login event
+  logInfo('User logged in', {
+    userId: user.id,
+    email: email,
+    requestId: getRequestId(),
+  });
+
   return toPublicUser(user);
 }
 
 export async function logout(): Promise<void> {
+  const session = await getSession();
+  const userId = session?.userId;
+
   await destroySession();
+
+  // Log logout event
+  if (userId) {
+    logInfo('User logged out', {
+      userId,
+      requestId: getRequestId(),
+    });
+  }
 }
 
 export async function getCurrentUser(): Promise<User | null> {

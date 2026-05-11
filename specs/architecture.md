@@ -44,6 +44,7 @@
     /errors
     /auth
     /audit
+    /logger
 ```
 
 分层规则：
@@ -160,6 +161,7 @@ flowchart TB
     subgraph Infra["基础设施层"]
         AuthModule["Auth Context / Session"]
         DBLayer["DB Access Layer"]
+        LoggerModule["Logger Module<br/>request context / sanitization"]
     end
 
     subgraph Data["SQLite"]
@@ -352,7 +354,8 @@ flowchart TB
 {
 code: string,
 message: string,
-details?: object
+details?: object,
+requestId?: string
 }
 
 必须包含以下错误类型：
@@ -373,6 +376,57 @@ details?: object
 - 所有 API 端点必须使用统一的错误处理函数 `handleApiError()`
 - 错误处理逻辑集中在 `lib/errors/api-handler.ts`
 - HTTP 状态码映射：401（UNAUTHENTICATED）、403（FORBIDDEN）、400（VALIDATION_ERROR/INVALID_STATE_TRANSITION）、404（NOT_FOUND）、409（CONFLICT）、500（INTERNAL）
+
+## 日志与可观测性
+
+### 日志模块
+
+Logger 模块提供结构化日志记录功能，位于 `lib/logger/`：
+
+- `logger.ts`: 核心日志功能
+- `request-context.ts`: requestId 生成与传递
+- `sanitizer.ts`: 敏感信息脱敏
+- `middleware.ts`: API 请求日志中间件
+
+### 日志规则
+
+必须记录：
+- 请求方法、路径、状态码
+- requestId（用于请求追踪）
+- 当前用户 ID（如已登录）
+- 关键写操作类型与资源 ID
+- 错误信息与上下文
+
+不得记录：
+- password、passwordHash
+- session token、cookie 原文
+- 原始 SQL、stack trace
+- 任何敏感认证信息
+
+### requestId 机制
+
+- 每个请求生成唯一 requestId
+- 支持从请求头 `x-request-id` 传递
+- 使用 AsyncLocalStorage 维护请求上下文
+- 错误响应中包含 requestId 用于排查
+
+### 日志级别
+
+- `info`: 正常操作记录
+- `warn`: 警告信息
+- `error`: 错误信息
+
+### 关键写操作日志
+
+必须记录日志的操作：
+- 用户登录/登出
+- Project 创建/归档
+- Project 成员添加/移除
+- Issue 创建/更新/状态变更/批量操作
+- assignee 变更
+- 评论创建/删除
+- 通知生成/标记已读
+- SavedView 创建/删除
 
 ## 数据规则
 

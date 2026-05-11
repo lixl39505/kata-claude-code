@@ -15,6 +15,7 @@ import { executeInTransactionAsync } from '@/lib/db/transaction';
 import { createMentionNotifications } from './notification';
 import { isProjectOwner } from './project-members';
 import type { CreateCommentInput } from '@/lib/validators/issue-comment';
+import { logInfo, getRequestId } from '@/lib/logger';
 
 export interface IssueComment {
   id: string;
@@ -109,6 +110,16 @@ export async function createCommentInIssue(
     }
 
     return comment;
+  });
+
+  // Log comment creation
+  logInfo('Issue comment created', {
+    commentId: result.id,
+    issueId,
+    projectId,
+    authorUserId: user.id,
+    mentionedCount: mentionedUsers.length,
+    requestId: getRequestId(),
   });
 
   // Return comment with mentions
@@ -232,6 +243,15 @@ export async function deleteCommentFromIssue(
       actorId: user.id,
       action: 'ISSUE_COMMENT_DELETED',
     });
+  });
+
+  // Log comment deletion
+  logInfo('Issue comment deleted', {
+    commentId,
+    issueId,
+    projectId,
+    actorUserId: user.id,
+    requestId: getRequestId(),
   });
 
   return { success: true };

@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { ZodError } from 'zod';
 import { AppError, type ApiError, type ErrorCode } from './index';
+import { getRequestId } from '@/lib/logger';
 
 /**
  * HTTP status code mapping for error codes
@@ -70,6 +71,7 @@ function getStatusCode(error: unknown): number {
  * - Maps error codes to appropriate HTTP status codes
  * - Prevents leaking internal error details
  * - Ensures consistent error response structure
+ * - Includes requestId in error response for tracing
  *
  * @param error - The caught error
  * @param context - Context information for logging (e.g., endpoint name)
@@ -83,6 +85,9 @@ function getStatusCode(error: unknown): number {
  * }
  */
 export function handleApiError(error: unknown, context: string): NextResponse {
+  // Get current requestId
+  const requestId = getRequestId();
+
   // Log unexpected errors with context
   if (!(error instanceof AppError) && !(error instanceof ZodError)) {
     console.error(`Unexpected error in ${context}:`, error);
@@ -97,6 +102,9 @@ export function handleApiError(error: unknown, context: string): NextResponse {
   } else {
     apiError = formatUnexpectedError();
   }
+
+  // Add requestId to error response
+  apiError.requestId = requestId;
 
   const statusCode = getStatusCode(error);
 

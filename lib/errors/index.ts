@@ -14,6 +14,7 @@ export interface ApiError {
   code: ErrorCode;
   message: string;
   details?: unknown;
+  requestId?: string;
 }
 
 export class AppError extends Error {
@@ -31,6 +32,15 @@ export class AppError extends Error {
       code: this.code,
       message: this.message,
       details: this.details,
+    };
+  }
+
+  toApiErrorWithRequestId(requestId?: string): ApiError {
+    return {
+      code: this.code,
+      message: this.message,
+      details: this.details,
+      requestId,
     };
   }
 }

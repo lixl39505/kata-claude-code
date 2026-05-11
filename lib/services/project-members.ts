@@ -22,6 +22,7 @@ import {
   ValidationError,
 } from '@/lib/errors';
 import type { AddProjectMemberInput } from '@/lib/validators/project-members';
+import { logInfo, getRequestId } from '@/lib/logger';
 
 /**
  * Check if current user is a project owner
@@ -95,7 +96,7 @@ export async function addProjectMember(
   }
 
   // Use transaction to ensure atomicity
-  return executeInTransactionAsync(db, (txnDb) => {
+  const result = executeInTransactionAsync(db, (txnDb) => {
     // Add member
     addProjectMemberDb(txnDb, {
       projectId,
@@ -120,6 +121,17 @@ export async function addProjectMember(
 
     return newMemberWithDetails;
   });
+
+  // Log member addition
+  logInfo('Project member added', {
+    projectId,
+    addedUserId: data.userId,
+    role: data.role,
+    actorUserId: currentUser.id,
+    requestId: getRequestId(),
+  });
+
+  return result;
 }
 
 /**
@@ -175,6 +187,14 @@ export async function removeProjectMember(projectId: string, userId: string): Pr
       actorId: currentUser.id,
       action: 'PROJECT_MEMBER_REMOVED',
     });
+  });
+
+  // Log member removal
+  logInfo('Project member removed', {
+    projectId,
+    removedUserId: userId,
+    actorUserId: currentUser.id,
+    requestId: getRequestId(),
   });
 
   return { success: true };

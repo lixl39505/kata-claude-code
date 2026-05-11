@@ -17,6 +17,7 @@ import { createAssigneeChangedNotification } from './notification';
 import { NotFoundError, InvalidStateTransitionError, InternalError, ForbiddenError, ConflictError } from '@/lib/errors';
 import type { CreateIssueInput, IssueState, CloseReason, UpdateIssueStateInput, UpdateIssueAssigneeInput, UpdateIssueInput, IssueFiltersInput, BatchUpdateIssuesInput, PresetViewKey, PresetViewParamsInput, PresetViewDefinition, CloseReasonStatsInput, CloseReasonStatsResult, DashboardStatsInput, DashboardStatsResult } from '@/lib/validators/issue';
 import { PRESET_VIEWS } from '@/lib/validators/issue';
+import { logInfo, getRequestId } from '@/lib/logger';
 
 export interface Issue {
   id: string;
@@ -52,7 +53,7 @@ export async function createIssueInProject(
   }
 
   // Use transaction to ensure atomicity of issue creation and audit logging
-  return executeInTransactionAsync(db, (txnDb) => {
+  const issue = executeInTransactionAsync(db, (txnDb) => {
     // Create issue with fixed status
     const issue = createIssueDb(txnDb, {
       projectId,
@@ -74,6 +75,17 @@ export async function createIssueInProject(
 
     return issue;
   });
+
+  // Log issue creation
+  logInfo('Issue created', {
+    issueId: (await issue).id,
+    projectId,
+    title: data.title,
+    createdById: user.id,
+    requestId: getRequestId(),
+  });
+
+  return issue;
 }
 
 export async function listIssuesForProject(projectId: string): Promise<Issue[]> {
@@ -224,7 +236,7 @@ export async function updateIssueState(
 
   // Use transaction to ensure atomicity of status update and audit logging
   try {
-    return executeInTransactionAsync(db, (txnDb) => {
+    const updatedIssue = executeInTransactionAsync(db, (txnDb) => {
       // Update issue state and closeReason with optimistic locking
       const updatedIssue = updateIssueDb(txnDb, issueId, {
         status: data.state,
@@ -247,6 +259,19 @@ export async function updateIssueState(
 
       return updatedIssue;
     });
+
+    // Log issue state change
+    logInfo('Issue status changed', {
+      issueId,
+      projectId,
+      fromStatus: currentIssue.status,
+      toStatus: data.state,
+      closeReason,
+      actorUserId: user.id,
+      requestId: getRequestId(),
+    });
+
+    return updatedIssue;
   } catch (error) {
     // Handle optimistic locking conflict
     if (error instanceof Error && 'code' in error && error.code === 'CONFLICT') {
@@ -304,7 +329,7 @@ export async function updateIssueAssignee(
 
   // Use transaction to ensure atomicity
   try {
-    return executeInTransactionAsync(db, (txnDb) => {
+    const updatedIssue = executeInTransactionAsync(db, (txnDb) => {
       const updatedIssue = updateIssueDb(txnDb, issueId, {
         assigneeId: data.assigneeId,
       }, data.expectedUpdatedAt);
@@ -333,6 +358,18 @@ export async function updateIssueAssignee(
 
       return updatedIssue;
     });
+
+    // Log assignee change
+    logInfo('Issue assignee changed', {
+      issueId,
+      projectId,
+      fromAssigneeId: currentIssue.assigneeId,
+      toAssigneeId: data.assigneeId,
+      actorUserId: user.id,
+      requestId: getRequestId(),
+    });
+
+    return updatedIssue;
   } catch (error) {
     // Handle optimistic locking conflict
     if (error instanceof Error && 'code' in error && error.code === 'CONFLICT') {
@@ -657,6 +694,16 @@ export async function batchUpdateIssues(data: BatchUpdateIssuesInput): Promise<{
 
       updatedCount++;
     }
+  });
+
+  // Log batch update
+  logInfo('Issues batch updated', {
+    issueCount: data.issueIds.length,
+    updatedCount,
+    state: data.state,
+    assigneeId: data.assigneeId,
+    actorUserId: user.id,
+    requestId: getRequestId(),
   });
 
   return {

@@ -163,6 +163,7 @@ flowchart TB
     subgraph Infra["基础设施层"]
         AuthModule["Auth Context / Session"]
         DBLayer["DB Access Layer"]
+        MigrationRunner["Migration Runner<br/>transactional execution"]
         LoggerModule["Logger Module<br/>request context / sanitization"]
     end
 
@@ -240,6 +241,8 @@ flowchart TB
 
     HealthAPI --> HealthService
     HealthService --> DBLayer
+    DBLayer --> MigrationRunner
+    MigrationRunner --> LoggerModule
 
     DBLayer --> Users
     DBLayer --> Sessions
@@ -466,6 +469,19 @@ Logger 模块提供结构化日志记录功能，位于 `lib/logger/`：
   - 迁移文件格式：NNN_description.sql
   - 迁移必须可幂等执行（使用 IF NOT EXISTS）
   - 健康检查会验证迁移状态一致性
+  - 应用启动时自动执行待执行的迁移
+- 迁移执行规则：
+  - 每个迁移必须有唯一版本号
+  - 已执行的迁移不得重复执行
+  - 迁移执行成功后必须写入 _migrations 表
+  - 迁移脚本必须在事务中执行，保证原子性
+  - 迁移失败时不得写入成功记录，必须回滚所有变更
+  - 迁移失败必须记录结构化日志
+- 迁移一致性保证：
+  - 单个迁移的结构变更与 _migrations 表写入必须在同一事务
+  - 多个迁移按版本顺序执行
+  - 不允许跳过中间迁移
+  - 不允许出现数据库结构已变更但迁移记录缺失的情况
 - 索引策略：
   - Issue 表：projectId, status, assigneeId, createdAt
   - Notification 表：(userId, isRead), createdAt

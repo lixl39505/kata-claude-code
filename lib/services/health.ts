@@ -25,6 +25,7 @@ export interface HealthCheckResult {
     migrations: {
       status: 'ok' | 'error';
       currentVersion?: string;
+      pendingCount?: number;
     };
   };
   checkedAt: string;
@@ -90,19 +91,25 @@ export async function checkHealth(): Promise<HealthCheckResult> {
 
     if (!migrationStatus.isConsistent) {
       checks.migrations.status = 'error';
+      checks.migrations.currentVersion = migrationStatus.currentVersion || undefined;
+      checks.migrations.pendingCount = migrationStatus.pendingMigrations.length;
       overallStatus = 'error';
 
       logError('Health check failed: Migration status inconsistent', {
         check: 'migrations',
         currentVersion: migrationStatus.currentVersion,
         pendingCount: migrationStatus.pendingMigrations.length,
+        orphanedCount: migrationStatus.appliedMigrations.length -
+          migrationStatus.pendingMigrations.length,
       });
     } else {
       checks.migrations.currentVersion = migrationStatus.currentVersion || undefined;
+      checks.migrations.pendingCount = migrationStatus.pendingMigrations.length;
 
       logInfo('Health check: Migrations OK', {
         check: 'migrations',
         currentVersion: migrationStatus.currentVersion,
+        pendingCount: migrationStatus.pendingMigrations.length,
       });
     }
   } catch (error) {

@@ -215,3 +215,56 @@ export function verifyDatabaseConnection(): boolean {
     return false;
   }
 }
+
+/**
+ * Check if a specific migration has been applied
+ *
+ * @param version - Migration version to check
+ * @returns true if the migration has been applied, false otherwise
+ */
+export function hasMigrationBeenApplied(version: string): boolean {
+  try {
+    const db = getDb();
+
+    // Ensure tracking table exists
+    initializeMigrationTracking();
+
+    const row = db
+      .prepare('SELECT 1 FROM _migrations WHERE version = ?')
+      .get(version) as { 1: number } | undefined;
+
+    return row !== undefined;
+  } catch {
+    // If there's any error, assume migration hasn't been applied
+    return false;
+  }
+}
+
+/**
+ * Record a migration as successfully applied
+ *
+ * This function inserts a migration record into the _migrations table.
+ * It uses INSERT OR IGNORE to ensure idempotency.
+ *
+ * @param version - Migration version to record
+ * @returns true if the record was inserted, false if it already existed
+ */
+export function recordMigration(version: string): boolean {
+  try {
+    const db = getDb();
+
+    // Ensure tracking table exists
+    initializeMigrationTracking();
+
+    const result = db
+      .prepare(
+        "INSERT OR IGNORE INTO _migrations (version, applied_at) VALUES (?, datetime('now'))"
+      )
+      .run(version);
+
+    return result.changes > 0;
+  } catch {
+    // If there's any error, return false
+    return false;
+  }
+}

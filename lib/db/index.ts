@@ -6,6 +6,8 @@ export * from './project-members';
 export * from './issue-comment-mentions';
 export * from './notifications';
 export * from './migrations/tracking';
+export * from './migrations';
+export { runMigrations } from './migrations/runner';
 
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'database.sqlite');
 
@@ -42,4 +44,9 @@ export function initializeDatabase(): void {
     const schema = fs.readFileSync(schemaPath, 'utf-8');
     database.exec(schema);
   }
+
+  // Run pending migrations
+  // Import runMigrations here to avoid circular dependency
+  const { runMigrations } = require('./migrations/runner');
+  runMigrations();
 }

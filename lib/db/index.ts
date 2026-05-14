@@ -5,6 +5,7 @@ export { executeInTransaction, executeInTransactionAsync } from './transaction';
 export * from './project-members';
 export * from './issue-comment-mentions';
 export * from './notifications';
+export * from './migrations/tracking';
 
 const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'database.sqlite');
 

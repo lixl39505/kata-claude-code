@@ -131,6 +131,7 @@ flowchart TB
         AssigneeAPI["Assignee API<br/>set / change / clear"]
         AuditLogAPI["Audit Log API<br/>get issue audit logs with pagination"]
         NotificationAPI["Notification API<br/>list / unread-count / mark read / batch read"]
+        HealthAPI["Health API<br/>GET /api/health (no auth)"]
     end
 
     subgraph Validation["校验层"]
@@ -156,6 +157,7 @@ flowchart TB
         AssigneeService["Assignee Service"]
         NotificationService["Notification Service"]
         AuditService["Audit Service"]
+        HealthService["Health Service<br/>app/database/migrations checks"]
     end
 
     subgraph Infra["基础设施层"]
@@ -235,6 +237,9 @@ flowchart TB
     AssigneeService --> NotificationService
 
     AuditService --> DBLayer
+
+    HealthAPI --> HealthService
+    HealthService --> DBLayer
 
     DBLayer --> Users
     DBLayer --> Sessions
@@ -427,13 +432,40 @@ Logger 模块提供结构化日志记录功能，位于 `lib/logger/`：
 - 评论创建/删除
 - 通知生成/标记已读
 - SavedView 创建/删除
+- 健康检查失败
 
+### 健康检查
+
+系统提供 `GET /api/health` 端点用于运行时健康检查：
+
+- **不要求认证**：允许部署系统直接访问
+- **检查项**：
+  - app：API 进程可响应性
+  - database：SQLite 连接状态（SELECT 1）
+  - migrations：数据库迁移版本一致性
+- **响应状态**：
+  - `ok`：所有检查通过
+  - `degraded`：非关键检查失败（当前未使用）
+  - `error`：关键检查失败（数据库或迁移异常）
+- **安全约束**：
+  - 不返回敏感信息（数据库路径、SQL、用户数据）
+  - 不修改业务数据
+  - 健康检查失败时记录结构化日志
+- **用途**：
+  - 部署系统健康探测
+  - 容器编排 liveness/readiness 探针
+  - 运维监控基础
 ## 数据规则
 
 - SQLite 是唯一数据源
 - 所有数据库操作集中在 lib/db
 - 禁止在 UI 或 API 中直接执行 SQL
 - 数据迁移必须可重复执行
+- 迁移版本追踪：
+  - 使用 `_migrations` 表记录已应用的迁移版本
+  - 迁移文件格式：NNN_description.sql
+  - 迁移必须可幂等执行（使用 IF NOT EXISTS）
+  - 健康检查会验证迁移状态一致性
 - 索引策略：
   - Issue 表：projectId, status, assigneeId, createdAt
   - Notification 表：(userId, isRead), createdAt
